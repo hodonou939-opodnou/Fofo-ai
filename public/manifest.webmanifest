@@ -1,0 +1,12 @@
+{
+  "name": "Fofo AI",
+  "short_name": "Fofo AI",
+  "description": "Crée des musiques originales inspirées des rythmes traditionnels béninois.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F7F3EA",
+  "theme_color": "#111111",
+  "icons": [
+    { "src": "/brand/logo-symbol.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
