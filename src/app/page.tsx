@@ -15,7 +15,7 @@ export default async function LandingPage() {
         <h1 className="text-4xl font-bold">Les rythmes du Bénin. Une nouvelle façon de créer.</h1>
         <p className="mt-4 text-lg">
           Crée des musiques originales inspirées des rythmes traditionnels béninois grâce à
-          l'intelligence artificielle.
+          l&apos;intelligence artificielle.
         </p>
         <ol className="mt-6 flex flex-col gap-2 text-sm">
           <li>1. Choisis ton rythme</li>

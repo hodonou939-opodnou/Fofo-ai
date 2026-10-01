@@ -8,7 +8,7 @@ export default function PrivacyPage() {
       </p>
       <p>
         Fofo AI collecte ton adresse e-mail pour créer ton compte, ainsi que les musiques que tu
-        génères et leurs paramètres, pour te permettre d'y accéder dans ta bibliothèque
+        génères et leurs paramètres, pour te permettre d&apos;y accéder dans ta bibliothèque
         personnelle. Ces données ne sont pas partagées avec des tiers en dehors des prestataires
         techniques strictement nécessaires au fonctionnement du service (hébergement, base de
         données, génération audio).
