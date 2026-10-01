@@ -16,8 +16,8 @@ async function signUpAndSignIn(email: string) {
 }
 
 describe("Row Level Security", () => {
-  let userA: ReturnType<typeof createClient>;
-  let userB: ReturnType<typeof createClient>;
+  let userA: Awaited<ReturnType<typeof signUpAndSignIn>>;
+  let userB: Awaited<ReturnType<typeof signUpAndSignIn>>;
 
   beforeAll(async () => {
     userA = await signUpAndSignIn(`user-a-${Date.now()}@example.test`);
