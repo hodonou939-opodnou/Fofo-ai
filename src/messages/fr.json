@@ -1,0 +1,11 @@
+{
+  "__complete": true,
+  "nav": { "cta": "Créer ma musique" },
+  "landing": {
+    "hero_title": "Les rythmes du Bénin. Une nouvelle façon de créer.",
+    "hero_subtitle": "Crée des musiques originales inspirées des rythmes traditionnels béninois grâce à l'intelligence artificielle.",
+    "step_1": "Choisis ton rythme",
+    "step_2": "Décris ton idée",
+    "step_3": "Écoute et télécharge ta création"
+  }
+}
