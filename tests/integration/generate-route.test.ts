@@ -109,4 +109,66 @@ describe("POST /api/generate", () => {
     createdJobIds.push(firstJson.jobId);
     expect(secondJson.jobId).toBe(firstJson.jobId);
   });
+
+  it("processes the job in the background to completion with a stored audio asset", async () => {
+    const res = await postGenerate(accessToken, {
+      rhythmSlug: "tchinkounme",
+      prompt: "a festive instrumental",
+      mood: "Festif",
+      energy: "Élevée",
+      durationSeconds: 15,
+    });
+    expect(res.status).toBe(201);
+    const { jobId } = await res.json();
+    createdJobIds.push(jobId);
+
+    let job: { status: string; error_message: string | null } | null = null;
+    for (let attempt = 0; attempt < 20; attempt++) {
+      await new Promise((r) => setTimeout(r, 500));
+      const { data } = await admin
+        .from("generation_jobs")
+        .select("status, error_message")
+        .eq("id", jobId)
+        .single();
+      job = data;
+      if (job && (job.status === "completed" || job.status === "failed")) break;
+    }
+
+    expect(job?.status).toBe("completed");
+    const { data: asset } = await admin
+      .from("audio_assets")
+      .select("storage_path")
+      .eq("generation_job_id", jobId)
+      .maybeSingle();
+    expect(asset).not.toBeNull();
+    expect(asset!.storage_path).toContain(jobId);
+  }, 15000);
+
+  it("marks the job failed with a message when the mock provider is told to fail", async () => {
+    const res = await postGenerate(accessToken, {
+      rhythmSlug: "toba",
+      prompt: "FORCE_FAIL please",
+      mood: "Paisible",
+      energy: "Faible",
+      durationSeconds: 15,
+    });
+    expect(res.status).toBe(201);
+    const { jobId } = await res.json();
+    createdJobIds.push(jobId);
+
+    let job: { status: string; error_message: string | null } | null = null;
+    for (let attempt = 0; attempt < 20; attempt++) {
+      await new Promise((r) => setTimeout(r, 500));
+      const { data } = await admin
+        .from("generation_jobs")
+        .select("status, error_message")
+        .eq("id", jobId)
+        .single();
+      job = data;
+      if (job && (job.status === "completed" || job.status === "failed")) break;
+    }
+
+    expect(job?.status).toBe("failed");
+    expect(job?.error_message).toBeTruthy();
+  }, 15000);
 });
