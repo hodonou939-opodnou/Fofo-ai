@@ -14,13 +14,21 @@ export default function SignUpForm() {
     e.preventDefault();
     setError(null);
     const supabase = createBrowserSupabaseClient();
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({ email, password });
     if (error) {
       setError(
         error.message.includes("already registered")
           ? "Un compte existe déjà avec cet e-mail."
           : "Impossible de créer le compte. Réessaie."
       );
+      return;
+    }
+    // When email confirmation is required, Supabase returns no error for an
+    // already-registered, already-confirmed email — only a user with an empty
+    // identities array (to prevent email enumeration). Treat that the same as
+    // the explicit "already registered" error above.
+    if (data.user && data.user.identities?.length === 0) {
+      setError("Un compte existe déjà avec cet e-mail.");
       return;
     }
     router.push("/studio");

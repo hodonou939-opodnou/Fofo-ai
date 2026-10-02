@@ -1,5 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -7,9 +7,18 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const admin = createClient(url, serviceKey);
 
+const createdUserIds: string[] = [];
+const createdRhythmSlugs: string[] = [];
+
 async function signUpAndSignIn(email: string) {
   const password = "correct horse battery staple 1!";
-  await admin.auth.admin.createUser({ email, password, email_confirm: true });
+  const { data, error } = await admin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+  if (error || !data.user) throw error ?? new Error("createUser returned no user");
+  createdUserIds.push(data.user.id);
   const client = createClient(url, anonKey);
   await client.auth.signInWithPassword({ email, password });
   return client;
@@ -24,9 +33,20 @@ describe("Row Level Security", () => {
     userB = await signUpAndSignIn(`user-b-${Date.now()}@example.test`);
   });
 
+  afterAll(async () => {
+    for (const slug of createdRhythmSlugs) {
+      await admin.from("rhythms").delete().eq("slug", slug);
+    }
+    for (const id of createdUserIds) {
+      await admin.auth.admin.deleteUser(id);
+    }
+  });
+
   it("only exposes published rhythms to anonymous readers", async () => {
+    const slug = `draft-${Date.now()}`;
+    createdRhythmSlugs.push(slug);
     await admin.from("rhythms").insert({
-      slug: `draft-${Date.now()}`,
+      slug,
       name: "Draft Rhythm",
       description_fr: "not yet public",
       status: "draft",
