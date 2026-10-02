@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { checkRateLimit, MAX_GENERATIONS_PER_HOUR } from "@/lib/generation/rate-limit";
 
 function fakeSupabase(count: number) {
