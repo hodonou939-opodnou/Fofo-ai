@@ -10,7 +10,8 @@ export default function StudioClient({ rhythms }: { rhythms: { slug: string; nam
   return (
     <div>
       <GenerationForm rhythms={rhythms} onJobCreated={setJobId} />
-      {jobId && <JobStatus jobId={jobId} />}
+      {/* key: a new job remounts JobStatus, so no state carries over from the previous one */}
+      {jobId && <JobStatus key={jobId} jobId={jobId} />}
     </div>
   );
 }

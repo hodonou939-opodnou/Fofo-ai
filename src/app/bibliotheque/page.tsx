@@ -1,12 +1,29 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { failStaleGenerationJobs } from "@/lib/generation/stale-jobs";
 import AudioPlayer from "@/components/studio/audio-player";
+
+const LIBRARY_PAGE_SIZE = 50;
+
+const STATUS_LABELS: Record<string, string> = {
+  queued: "En file d'attente",
+  processing: "Génération en cours",
+  failed: "Échec",
+  cancelled: "Annulée",
+};
 
 export default async function LibraryPage() {
   const supabase = await createServerSupabaseClient();
+
+  // Jobs whose worker died never got a terminal write: fail them first, so the
+  // library never shows a generation "en cours" forever.
+  const { error: staleError } = await failStaleGenerationJobs(supabase);
+  if (staleError) console.error("[library] could not fail stale jobs", staleError);
+
   const { data: jobs } = await supabase
     .from("generation_jobs")
     .select("id, prompt, status, created_at, rhythms(name)")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(LIBRARY_PAGE_SIZE);
 
   return (
     <main className="px-6 py-12 max-w-2xl">
@@ -26,7 +43,9 @@ export default async function LibraryPage() {
               {job.status === "completed" ? (
                 <AudioPlayer jobId={job.id} />
               ) : (
-                <p className="text-xs italic mt-1">Statut : {job.status}</p>
+                <p className="text-xs italic mt-1">
+                  Statut : {STATUS_LABELS[job.status] ?? job.status}
+                </p>
               )}
             </li>
           ))}

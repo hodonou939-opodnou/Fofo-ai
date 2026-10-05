@@ -1,10 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import {
+  DURATIONS,
+  ENERGIES,
+  MOODS,
+  PROMPT_MAX_LENGTH,
+  type Energy,
+  type Mood,
+} from "@/lib/generation/options";
 
-const MOODS = ["Festif", "Énergique", "Paisible", "Émouvant", "Cinématographique"];
-const ENERGIES = ["Faible", "Modérée", "Élevée"];
-const DURATIONS = [15, 30, 60];
+const ERROR_MESSAGES: Partial<Record<number, string>> = {
+  429: "Tu as atteint la limite de générations par heure. Réessaie plus tard.",
+  503: "Le service de génération est momentanément indisponible.",
+};
+const GENERIC_ERROR = "Impossible de lancer la génération. Réessaie.";
+const NETWORK_ERROR = "Connexion perdue — réessaie.";
 
 export default function GenerationForm({
   rhythms,
@@ -17,30 +28,44 @@ export default function GenerationForm({
   const [prompt, setPrompt] = useState("");
   const [mood, setMood] = useState(MOODS[0]);
   const [energy, setEnergy] = useState(ENERGIES[0]);
-  const [durationSeconds, setDurationSeconds] = useState(DURATIONS[0]);
+  const [durationSeconds, setDurationSeconds] = useState<number>(DURATIONS[0]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Set only while the last attempt got no HTTP response at all: resubmitting
+  // is then a retry of that same submission, which the server dedupes.
+  const unconfirmedSubmissionId = useRef<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
+    const submissionId = unconfirmedSubmissionId.current ?? crypto.randomUUID();
+
+    let res: Response;
     try {
-      const res = await fetch("/api/generate", {
+      res = await fetch("/api/generate", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ rhythmSlug, prompt, mood, energy, durationSeconds }),
+        body: JSON.stringify({ rhythmSlug, prompt, mood, energy, durationSeconds, submissionId }),
       });
-      if (res.status === 429) {
-        setError("Tu as atteint la limite de générations par heure. Réessaie plus tard.");
-        return;
-      }
+    } catch {
+      unconfirmedSubmissionId.current = submissionId;
+      setError(NETWORK_ERROR);
+      setSubmitting(false);
+      return;
+    }
+
+    // The server answered: the next click is a new, deliberate submission.
+    unconfirmedSubmissionId.current = null;
+    try {
       if (!res.ok) {
-        setError("Impossible de lancer la génération. Réessaie.");
+        setError(ERROR_MESSAGES[res.status] ?? GENERIC_ERROR);
         return;
       }
       const { jobId } = await res.json();
       onJobCreated(jobId);
+    } catch {
+      setError(GENERIC_ERROR);
     } finally {
       setSubmitting(false);
     }
@@ -66,6 +91,7 @@ export default function GenerationForm({
         Décris ton idée
         <textarea
           required
+          maxLength={PROMPT_MAX_LENGTH}
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           className="border rounded px-3 py-2"
@@ -73,7 +99,11 @@ export default function GenerationForm({
       </label>
       <label className="flex flex-col gap-1">
         Humeur
-        <select value={mood} onChange={(e) => setMood(e.target.value)} className="border rounded px-3 py-2">
+        <select
+          value={mood}
+          onChange={(e) => setMood(e.target.value as Mood)}
+          className="border rounded px-3 py-2"
+        >
           {MOODS.map((m) => (
             <option key={m} value={m}>
               {m}
@@ -85,7 +115,7 @@ export default function GenerationForm({
         Énergie
         <select
           value={energy}
-          onChange={(e) => setEnergy(e.target.value)}
+          onChange={(e) => setEnergy(e.target.value as Energy)}
           className="border rounded px-3 py-2"
         >
           {ENERGIES.map((en) => (
