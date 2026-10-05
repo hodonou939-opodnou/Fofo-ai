@@ -11,9 +11,20 @@ describe("buildPrompt", () => {
     });
     expect(prompt).toContain("Zinli");
     expect(prompt).toContain("a wedding celebration feel");
-    expect(prompt).toContain("Festif");
-    expect(prompt).toContain("Élevée");
     expect(prompt.toLowerCase()).toContain("instrumental");
     expect(prompt.toLowerCase()).toContain("no vocals");
+  });
+
+  it("maps the French mood and energy labels to English descriptors", () => {
+    const prompt = buildPrompt({
+      rhythmName: "Toba",
+      userIdea: "un mariage",
+      mood: "Cinématographique",
+      energy: "Faible",
+    });
+    expect(prompt).toContain("Mood: cinematic.");
+    expect(prompt).toContain("Energy level: low.");
+    expect(prompt).not.toContain("Cinématographique");
+    expect(prompt).not.toContain("Faible");
   });
 });

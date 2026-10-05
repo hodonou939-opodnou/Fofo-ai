@@ -10,9 +10,16 @@ export async function createServerSupabaseClient() {
       cookies: {
         getAll: () => cookieStore.getAll(),
         setAll: (cookiesToSet) => {
-          cookiesToSet.forEach(({ name, value, options }) =>
-            cookieStore.set(name, value, options)
-          );
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options)
+            );
+          } catch {
+            // Cookies can't be written from a Server Component, nor once the
+            // response has been sent (a token refresh inside after()). The
+            // refreshed session still applies to this client's requests, and
+            // the proxy persists refreshed cookies on the next navigation.
+          }
         },
       },
     }

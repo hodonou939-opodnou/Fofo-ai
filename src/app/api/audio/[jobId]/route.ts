@@ -1,22 +1,15 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createRouteSupabaseClient } from "@/lib/supabase/route";
 
+const SIGNED_URL_TTL_SECONDS = 60 * 60;
+
+// Redirects the owner of a completed job to a short-lived signed URL for its
+// audio. `?download=1` signs an attachment URL instead, so "Télécharger"
+// saves the file rather than playing it in a tab (a cross-origin redirect
+// makes the browser ignore <a download>).
 export async function GET(request: Request, { params }: { params: Promise<{ jobId: string }> }) {
   const { jobId } = await params;
-
-  // Same bearer-token-aware client pattern as /api/generate: a Bearer token
-  // (tests, server-to-server) gets its own client with the token applied to
-  // every request so RLS sees the right auth.uid(); cookie sessions
-  // (browser/Studio UI) use the cookie-bound server client.
-  const authHeader = request.headers.get("authorization");
-  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
-
-  const supabase = bearerToken
-    ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
-        global: { headers: { Authorization: `Bearer ${bearerToken}` } },
-      })
-    : await createServerSupabaseClient();
+  const supabase = await createRouteSupabaseClient(request);
 
   const {
     data: { user },
@@ -27,7 +20,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ jobI
 
   const { data: asset } = await supabase
     .from("audio_assets")
-    .select("storage_path, generation_jobs!inner(user_id)")
+    .select("storage_path, format, generation_jobs!inner(user_id)")
     .eq("generation_job_id", jobId)
     .maybeSingle();
 
@@ -35,9 +28,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ jobI
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  const download = new URL(request.url).searchParams.get("download") === "1";
   const { data: signed, error } = await supabase.storage
     .from("generations")
-    .createSignedUrl(asset.storage_path, 60 * 60);
+    .createSignedUrl(
+      asset.storage_path,
+      SIGNED_URL_TTL_SECONDS,
+      download ? { download: `fofo-${jobId}.${asset.format}` } : undefined
+    );
 
   if (error || !signed) {
     return NextResponse.json({ error: "signing_failed" }, { status: 500 });

@@ -1,184 +1,106 @@
 import { NextResponse, after } from "next/server";
-import { createHash } from "node:crypto";
-import { createClient } from "@supabase/supabase-js";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { checkRateLimit } from "@/lib/generation/rate-limit";
+import { createRouteSupabaseClient } from "@/lib/supabase/route";
 import { getProvider } from "@/lib/generation/get-provider";
 import { buildPrompt } from "@/lib/generation/build-prompt";
-
-const VALID_DURATIONS = [15, 30, 60];
+import { parseGenerateRequest } from "@/lib/generation/generate-request";
+import { computeIdempotencyKey } from "@/lib/generation/idempotency";
+import { MAX_GENERATIONS_PER_HOUR, RATE_LIMIT_EXCEEDED_CODE } from "@/lib/generation/rate-limit";
+import { processGenerationJob } from "@/lib/generation/process-job";
 
 export async function POST(request: Request) {
-  // Cookie-based sessions (browser/Studio UI) use the cookie-bound server
-  // client. A Bearer token (server-to-server calls, integration tests) gets
-  // its own client with that token set as the Authorization header on every
-  // request, so RLS sees the right auth.uid() for inserts/selects below —
-  // supabase.auth.getUser(token) alone only validates the token, it does not
-  // make later .from() calls act as that user.
-  const authHeader = request.headers.get("authorization");
-  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : undefined;
+  const provider = getProvider();
 
-  const supabase = bearerToken
-    ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
-        global: { headers: { Authorization: `Bearer ${bearerToken}` } },
-      })
-    : await createServerSupabaseClient();
+  // Outside production every response names the active provider, so the
+  // test suites can refuse to run against a server that would spend real
+  // provider credits (assertMockProvider in tests/integration/generation-helpers.ts).
+  const respond = (body: Record<string, unknown>, status: number) => {
+    const response = NextResponse.json(body, { status });
+    if (process.env.NODE_ENV !== "production") {
+      response.headers.set("x-generation-provider", provider?.name ?? "none");
+    }
+    return response;
+  };
 
+  const supabase = await createRouteSupabaseClient(request);
   const {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+    return respond({ error: "unauthenticated" }, 401);
   }
 
-  const body = await request.json().catch(() => null);
-  if (
-    !body ||
-    typeof body.rhythmSlug !== "string" ||
-    typeof body.prompt !== "string" ||
-    body.prompt.trim().length === 0 ||
-    typeof body.mood !== "string" ||
-    typeof body.energy !== "string" ||
-    !VALID_DURATIONS.includes(body.durationSeconds)
-  ) {
-    return NextResponse.json({ error: "invalid_request" }, { status: 400 });
+  const input = parseGenerateRequest(await request.json().catch(() => null));
+  if (!input) {
+    return respond({ error: "invalid_request" }, 400);
+  }
+
+  // Before any database work: an unconfigured service creates no job row and
+  // uses no rate-limit quota.
+  if (!provider) {
+    return respond({ error: "service_unavailable" }, 503);
   }
 
   const { data: rhythm } = await supabase
     .from("rhythms")
     .select("id, name")
-    .eq("slug", body.rhythmSlug)
+    .eq("slug", input.rhythmSlug)
     .eq("status", "published")
     .maybeSingle();
   if (!rhythm) {
-    return NextResponse.json({ error: "rhythm_not_found" }, { status: 404 });
+    return respond({ error: "rhythm_not_found" }, 404);
   }
 
-  const { allowed } = await checkRateLimit(supabase, user.id);
-  if (!allowed) {
-    return NextResponse.json({ error: "rate_limited" }, { status: 429 });
-  }
-
-  const idempotencyKey = createHash("sha256")
-    .update(
-      [user.id, rhythm.id, body.prompt, body.mood, body.energy, body.durationSeconds].join(":")
-    )
-    .digest("hex");
-
-  const { data: inserted } = await supabase
-    .from("generation_jobs")
-    .insert({
-      user_id: user.id,
-      rhythm_id: rhythm.id,
-      prompt: body.prompt,
-      mood: body.mood,
-      energy: body.energy,
-      duration_seconds: body.durationSeconds,
-      status: "queued",
-      idempotency_key: idempotencyKey,
+  // Atomic per user: idempotency lookup, then the hourly limit, then insert.
+  const { data: job, error } = await supabase
+    .rpc("create_generation_job", {
+      p_rhythm_id: rhythm.id,
+      p_prompt: input.prompt,
+      p_mood: input.mood,
+      p_energy: input.energy,
+      p_duration_seconds: input.durationSeconds,
+      p_provider: provider.name,
+      p_idempotency_key: computeIdempotencyKey({
+        userId: user.id,
+        submissionId: input.submissionId,
+        rhythmId: rhythm.id,
+        prompt: input.prompt,
+        mood: input.mood,
+        energy: input.energy,
+        durationSeconds: input.durationSeconds,
+      }),
+      p_max_per_hour: MAX_GENERATIONS_PER_HOUR,
     })
-    .select("id")
-    .maybeSingle();
+    .single<{ job_id: string; created: boolean }>();
 
-  let jobId = inserted?.id;
-  if (!jobId) {
-    const { data: existing } = await supabase
-      .from("generation_jobs")
-      .select("id")
-      .eq("idempotency_key", idempotencyKey)
-      .maybeSingle();
-    jobId = existing?.id;
+  if (error?.code === RATE_LIMIT_EXCEEDED_CODE) {
+    return respond({ error: "rate_limited" }, 429);
   }
-  if (!jobId) {
-    return NextResponse.json({ error: "job_creation_failed" }, { status: 500 });
+  if (error || !job) {
+    console.error("[generate] job creation failed", error);
+    return respond({ error: "job_creation_failed" }, 500);
   }
 
-  // Only run the background work for a job we just created (not one returned
-  // by the idempotency fast-path above, which is already queued/processing).
-  if (inserted?.id === jobId) {
-    const provider = getProvider();
-    if (!provider) {
-      await supabase
-        .from("generation_jobs")
-        .update({ status: "failed", error_message: "Service de génération non configuré." })
-        .eq("id", jobId);
-    } else {
-      const finalPrompt = buildPrompt({
-        rhythmName: rhythm.name,
-        userIdea: body.prompt,
-        mood: body.mood,
-        energy: body.energy,
-      });
-      after(async () => {
-        await supabase
-          .from("generation_jobs")
-          .update({ status: "processing", updated_at: new Date().toISOString() })
-          .eq("id", jobId);
-
-        const result = await provider.generate({
-          prompt: finalPrompt,
-          durationSeconds: body.durationSeconds,
-        });
-
-        if (!result.ok) {
-          await supabase
-            .from("generation_jobs")
-            .update({
-              status: "failed",
-              error_message: result.errorMessage,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", jobId);
-          return;
-        }
-
-        const storagePath = `${user.id}/${jobId}.${result.format}`;
-        const { error: uploadError } = await supabase.storage
-          .from("generations")
-          .upload(storagePath, result.audio, {
-            contentType: result.format === "mp3" ? "audio/mpeg" : "audio/wav",
-          });
-
-        if (uploadError) {
-          await supabase
-            .from("generation_jobs")
-            .update({
-              status: "failed",
-              error_message: `Échec du stockage audio: ${uploadError.message}`,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", jobId);
-          return;
-        }
-
-        await supabase.from("audio_assets").insert({
-          generation_job_id: jobId,
-          storage_path: storagePath,
-          format: result.format,
-          duration_seconds: body.durationSeconds,
-          sample_rate: result.sampleRate,
-          file_size_bytes: result.audio.length,
-        });
-
-        await supabase
-          .from("generation_jobs")
-          .update({
-            status: "completed",
-            completed_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", jobId);
-
-        await supabase.from("usage_records").insert({
-          user_id: user.id,
-          generation_job_id: jobId,
-          estimated_cost: 0,
-        });
-      });
-    }
+  // Only the request that created the job runs it: a retried submission gets
+  // the existing job back and never triggers a second provider call.
+  if (job.created) {
+    const prompt = buildPrompt({
+      rhythmName: rhythm.name,
+      userIdea: input.prompt,
+      mood: input.mood,
+      energy: input.energy,
+    });
+    after(() =>
+      processGenerationJob({
+        supabase,
+        provider,
+        job: { id: job.job_id, userId: user.id, prompt, durationSeconds: input.durationSeconds },
+      })
+    );
   }
 
-  return NextResponse.json({ jobId }, { status: 201 });
+  return respond({ jobId: job.job_id }, 201);
 }
 
+// The worker runs inside this budget: two 45 s provider attempts plus the 2 s
+// retry backoff, then the upload. Must stay a literal (Next reads it statically).
 export const maxDuration = 120;

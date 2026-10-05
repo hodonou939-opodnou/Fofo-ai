@@ -28,7 +28,7 @@ export class MockProvider implements MusicGenerationProvider {
 
   async generate(request: GenerationRequest): Promise<GenerationResult> {
     if (request.prompt.includes("FORCE_FAIL")) {
-      return { ok: false, errorMessage: "Mock provider forced failure." };
+      return { ok: false, kind: "unavailable", detail: "Mock provider forced failure (FORCE_FAIL)." };
     }
     return { ok: true, audio: silentWav(), format: "wav", sampleRate: 44100 };
   }
