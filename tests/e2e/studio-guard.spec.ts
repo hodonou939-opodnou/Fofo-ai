@@ -6,6 +6,12 @@ test("an unauthenticated visitor to /studio is redirected to /connexion", async 
   await expect(page).toHaveURL(/\/connexion/);
 });
 
+test("an unauthenticated visitor to /bibliotheque is redirected to /connexion", async ({ page }) => {
+  await page.context().clearCookies();
+  await page.goto("/bibliotheque");
+  await expect(page).toHaveURL(/\/connexion/);
+});
+
 test("a signed-in user can reach /studio", async ({ page }) => {
   const email = `guard-${Date.now()}@example.test`;
   const password = "correct horse battery staple 1!";

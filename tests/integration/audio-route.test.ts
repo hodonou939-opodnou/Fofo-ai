@@ -1,10 +1,15 @@
 import { createClient } from "@supabase/supabase-js";
 import { afterAll, describe, expect, it } from "vitest";
+import {
+  assertMockProvider,
+  baseUrl,
+  postGenerate,
+  waitForTerminalJob,
+} from "./generation-helpers";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const baseUrl = process.env.TEST_BASE_URL ?? "http://localhost:3000";
 
 const admin = createClient(url, serviceKey);
 const createdUserIds: string[] = [];
@@ -62,4 +67,38 @@ describe("GET /api/audio/:jobId", () => {
     });
     expect(res.status).toBe(404);
   });
+
+  it("redirects the owner to a signed URL that serves the audio, and to an attachment for download", async () => {
+    await assertMockProvider();
+    const owner = await signUpAndSignIn(`listener-${Date.now()}@example.test`);
+    const created = await postGenerate(owner.accessToken, {
+      rhythmSlug: "zinli",
+      prompt: "a song to play back",
+      mood: "Paisible",
+      energy: "Faible",
+      durationSeconds: 15,
+    });
+    const { jobId } = await created.json();
+    expect((await waitForTerminalJob(admin, jobId))?.status).toBe("completed");
+
+    const play = await fetch(`${baseUrl}/api/audio/${jobId}`, {
+      redirect: "manual",
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+    });
+    expect(play.status).toBe(307);
+    const audio = await fetch(play.headers.get("location")!);
+    expect(audio.status).toBe(200);
+    expect(audio.headers.get("content-type")).toMatch(/^audio\//);
+    expect((await audio.arrayBuffer()).byteLength).toBeGreaterThan(0);
+
+    const download = await fetch(`${baseUrl}/api/audio/${jobId}?download=1`, {
+      redirect: "manual",
+      headers: { authorization: `Bearer ${owner.accessToken}` },
+    });
+    expect(download.status).toBe(307);
+    const file = await fetch(download.headers.get("location")!);
+    expect(file.status).toBe(200);
+    expect(file.headers.get("content-disposition")).toMatch(/attachment/);
+    expect(file.headers.get("content-disposition")).toContain(`fofo-${jobId}.wav`);
+  }, 20000);
 });
