@@ -46,7 +46,8 @@ export default function TrackMenu({
     setPanel(next);
   }
 
-  const itemClass = "block w-full rounded-tile px-3 py-2.5 text-left text-sm text-ivory hover:bg-soot-raised";
+  const itemClass =
+    "flex min-h-11 w-full items-center rounded-tile px-3 text-left text-base text-ivory hover:bg-soot-raised md:text-sm";
 
   return (
     <div ref={ref} className="relative">
@@ -55,7 +56,7 @@ export default function TrackMenu({
         aria-label={`Options : ${track.title}`}
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="grid size-10 place-items-center rounded-full bg-night/70 text-ivory backdrop-blur transition hover:bg-night"
+        className="grid size-11 place-items-center rounded-full bg-night/70 text-ivory backdrop-blur transition hover:bg-night"
       >
         <svg viewBox="0 0 20 20" className="size-5" aria-hidden>
           <circle cx="4.5" cy="10" r="1.6" fill="currentColor" />
@@ -65,7 +66,11 @@ export default function TrackMenu({
       </button>
 
       {open && (
-        <div className="absolute right-0 z-20 mt-2 w-52 rounded-panel border border-ember bg-soot p-1.5 shadow-lift">
+        <>
+          {/* Phones and small tablets: a bottom sheet above the tab bar, never clipped by the card. */}
+          <div aria-hidden className="fixed inset-0 z-40 bg-night/60 md:hidden" onClick={() => setOpen(false)} />
+          <div className="fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-50 rounded-panel border border-ember bg-soot p-2 shadow-lift md:absolute md:inset-x-auto md:right-0 md:bottom-auto md:mt-2 md:w-52 md:p-1.5">
+          <p className="truncate px-3 pt-1 pb-2 text-sm text-dust md:hidden">{track.title}</p>
           {completed && (
             <button type="button" className={itemClass} onClick={() => openPanel("share")}>
               Partager
@@ -84,7 +89,8 @@ export default function TrackMenu({
               Supprimer
             </button>
           )}
-        </div>
+          </div>
+        </>
       )}
 
       {panel === "share" && <ShareDialog track={track} onChange={onChange} onClose={() => setPanel(null)} />}

@@ -93,9 +93,12 @@ export default function TrackCard({
           <div className="absolute inset-0 bg-night/70" aria-hidden />
         )}
 
-        <div className="absolute top-2 right-2">
-          <TrackMenu track={track} onChange={onChange} onRemoved={onRemoved} />
-        </div>
+      </div>
+
+      {/* Outside the clipped cover box, and with no z-index of its own (that would
+          trap the phone bottom sheet under the player and tab bar). */}
+      <div className="absolute top-2 right-2">
+        <TrackMenu track={track} onChange={onChange} onRemoved={onRemoved} />
       </div>
 
       <div className="mt-3 min-w-0">

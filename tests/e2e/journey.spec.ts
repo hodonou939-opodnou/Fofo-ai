@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { assertMockServer, signUp, uniqueEmail } from "./helpers";
+import { assertMockServer, expectTappable, signUp, uniqueEmail } from "./helpers";
 
 // The whole product, as a first-time visitor lives it (spec 2026-10-06 §2):
 // home → idea kept through sign-up → create → play → share → a friend opens
@@ -35,6 +35,10 @@ test("a visitor creates, plays, shares, renames and deletes a track", async ({ p
 
   // 4. Share, and open the link as someone without an account.
   await page.getByRole("button", { name: `Options : ${title}` }).click();
+  for (const item of ["Partager", "Renommer", "Supprimer"]) {
+    await expectTappable(page.getByRole("button", { name: item, exact: true }));
+  }
+  await expectTappable(page.getByRole("link", { name: "Télécharger" }));
   await page.getByRole("button", { name: "Partager" }).click();
   const linkField = page.getByLabel("Lien de partage");
   await expect(linkField).toHaveValue(/\/t\/[0-9a-f]{24}$/);
