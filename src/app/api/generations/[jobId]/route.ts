@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createRouteSupabaseClient } from "@/lib/supabase/route";
 import { statusForRpcError } from "@/lib/supabase/rpc-errors";
+import { removeSharedCopy } from "@/lib/tracks/share-copy";
 
 type Params = { params: Promise<{ jobId: string }> };
 
@@ -36,6 +37,14 @@ export async function DELETE(request: Request, { params }: Params) {
   const { jobId } = await params;
   const { supabase, user } = await signedIn(request);
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+
+  // A shared track's public copy goes first, while its token still proves
+  // ownership; if that fails, nothing is deleted.
+  const { error: copyError } = await removeSharedCopy(supabase, jobId);
+  if (copyError) {
+    console.error("removing a deleted track's shared copy failed", copyError);
+    return NextResponse.json({ error: "delete_failed" }, { status: 500 });
+  }
 
   const { data: storagePath, error } = await supabase.rpc("delete_generation_job", { p_job_id: jobId });
   if (error) {

@@ -135,7 +135,7 @@ describe("migration 0006 — titles, sharing, soft delete, references", () => {
     expect(error?.code).toBe("55000");
   });
 
-  it("shares a completed job publicly and stops the moment sharing is disabled", async () => {
+  it("reads a shared track by token only, revealing no internal ids, and stops when unshared", async () => {
     const job = await insertCompletedJobWithAudio();
     const enabled = await owner.client.rpc("set_generation_job_sharing", { p_job_id: job.id, p_enabled: true });
     expect(enabled.error).toBeNull();
@@ -145,18 +145,30 @@ describe("migration 0006 — titles, sharing, soft delete, references", () => {
     const shared = await anon.rpc("get_shared_track", { p_token: token });
     expect(shared.error).toBeNull();
     expect(shared.data).toHaveLength(1);
-    expect(shared.data[0]).toMatchObject({ job_id: job.id, rhythm_slug: "zinli", storage_path: job.path });
-
-    const signed = await anon.storage.from("generations").createSignedUrl(job.path, 60);
-    expect(signed.error).toBeNull();
+    expect(shared.data[0]).toMatchObject({ rhythm_slug: "zinli", format: "wav" });
+    // Neither the owner's id nor the private storage path may leak through a share link.
+    expect(shared.data[0]).not.toHaveProperty("job_id");
+    expect(shared.data[0]).not.toHaveProperty("storage_path");
 
     const disabled = await owner.client.rpc("set_generation_job_sharing", { p_job_id: job.id, p_enabled: false });
     expect(disabled.error).toBeNull();
     expect(disabled.data).toBeNull();
     const after = await anon.rpc("get_shared_track", { p_token: token });
     expect(after.data).toHaveLength(0);
-    const signedAfter = await anon.storage.from("generations").createSignedUrl(job.path, 60);
-    expect(signedAfter.error).not.toBeNull();
+  });
+
+  it("never lets an anonymous visitor list or sign private audio, even while it is shared", async () => {
+    const job = await insertCompletedJobWithAudio();
+    await owner.client.rpc("set_generation_job_sharing", { p_job_id: job.id, p_enabled: true });
+
+    const root = await anon.storage.from("generations").list("");
+    expect(root.data ?? []).toHaveLength(0);
+    const folder = await anon.storage.from("generations").list(owner.id);
+    expect(folder.data ?? []).toHaveLength(0);
+    const signed = await anon.storage.from("generations").createSignedUrl(job.path, 60);
+    expect(signed.error).not.toBeNull();
+    const sharedBucket = await anon.storage.from("shared").list("");
+    expect(sharedBucket.data ?? []).toHaveLength(0);
   });
 
   it("soft-deletes a job: hidden, asset row and share link gone, file removable, not deletable twice", async () => {

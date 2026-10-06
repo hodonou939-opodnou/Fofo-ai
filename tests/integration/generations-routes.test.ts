@@ -139,6 +139,8 @@ describe("generation routes — rename, delete, share", () => {
     const shared = await on.json();
     expect(shared.shareToken).toMatch(/^[0-9a-f]{24}$/);
     expect(shared.url).toBe(`${baseUrl}/t/${shared.shareToken}`);
+    const published = await admin.storage.from("shared").list("", { search: shared.shareToken });
+    expect(published.data?.map((o) => o.name)).toEqual([`${shared.shareToken}.wav`]);
 
     expect(
       (
@@ -154,6 +156,20 @@ describe("generation routes — rename, delete, share", () => {
       body: JSON.stringify({ enabled: false }),
     });
     expect(await off.json()).toEqual({ shareToken: null, url: null });
+    const unpublished = await admin.storage.from("shared").list("", { search: shared.shareToken });
+    expect(unpublished.data ?? []).toHaveLength(0);
+  });
+
+  it("deleting a shared track also removes its public copy", async () => {
+    const job = await completedJob();
+    const on = await call(`/api/generations/${job.id}/share`, owner.token, {
+      method: "POST",
+      body: JSON.stringify({ enabled: true }),
+    });
+    const { shareToken } = await on.json();
+    expect((await call(`/api/generations/${job.id}`, owner.token, { method: "DELETE" })).status).toBe(204);
+    const left = await admin.storage.from("shared").list("", { search: shareToken });
+    expect(left.data ?? []).toHaveLength(0);
   });
 
   it("deletes for the owner: the audio file is gone and the job no longer plays", async () => {

@@ -1,19 +1,18 @@
 import { createClient } from "@supabase/supabase-js";
 
 // Public, by-token access to one shared track (get_shared_track, migration
-// 0006). Uses a plain anonymous client — no cookies — so a visitor and a
-// member see exactly the same thing, and the result is safe to cache.
+// 0007). Uses a plain anonymous client — no cookies — so a visitor and a
+// member see exactly the same thing. The result carries no internal ids.
 
 const SHARE_TOKEN = /^[0-9a-f]{24}$/;
 
 export type SharedTrack = {
-  jobId: string;
+  token: string;
   title: string;
   rhythmName: string | null;
   rhythmSlug: string | null;
   durationSeconds: number;
   format: string;
-  storagePath: string;
   createdAt: string;
 };
 
@@ -28,13 +27,11 @@ export function isShareToken(token: string) {
 }
 
 type Row = {
-  job_id: string;
   title: string | null;
   rhythm_name: string | null;
   rhythm_slug: string | null;
   duration_seconds: number;
   format: string;
-  storage_path: string;
   created_at: string;
 };
 
@@ -48,13 +45,12 @@ export async function getSharedTrack(token: string): Promise<SharedTrack | null>
   const row = (data as Row[] | null)?.[0];
   if (!row) return null;
   return {
-    jobId: row.job_id,
+    token,
     title: row.title ?? "Création Fofo",
     rhythmName: row.rhythm_name,
     rhythmSlug: row.rhythm_slug,
     durationSeconds: Number(row.duration_seconds),
     format: row.format,
-    storagePath: row.storage_path,
     createdAt: row.created_at,
   };
 }

@@ -2,13 +2,15 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { baseUrl } from "./generation-helpers";
 
-// The public share page and audio route (spec 2026-10-06 §5, §7), fetched
-// anonymously: no cookie, no token — exactly like a friend opening a WhatsApp link.
+// The public share page and audio (spec 2026-10-06 §5, §7), fetched
+// anonymously — exactly like a friend opening a WhatsApp link. Sharing goes
+// through the app's own route, which publishes the one public copy.
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 const admin = createClient(url, serviceKey);
+const anon = createClient(url, anonKey);
 
 const createdUserIds: string[] = [];
 const uploadedPaths: string[] = [];
@@ -32,7 +34,15 @@ function emptyWav() {
 describe("public share page and audio", () => {
   let owner: SupabaseClient;
   let ownerId: string;
+  let ownerToken: string;
   let rhythmId: string;
+
+  function route(path: string, init: RequestInit = {}) {
+    return fetch(`${baseUrl}${path}`, {
+      ...init,
+      headers: { "content-type": "application/json", authorization: `Bearer ${ownerToken}` },
+    });
+  }
 
   async function sharedJob(title: string) {
     const { data: job, error } = await admin
@@ -60,12 +70,17 @@ describe("public share page and audio", () => {
       sample_rate: 44100,
       file_size_bytes: 44,
     });
-    const { data: token, error: shareError } = await owner.rpc("set_generation_job_sharing", {
-      p_job_id: job.id,
-      p_enabled: true,
-    });
-    if (shareError) throw shareError;
-    return { id: job.id as string, token: token as string };
+    const res = await route(`/api/generations/${job.id}/share`, { method: "POST", body: JSON.stringify({ enabled: true }) });
+    expect(res.status).toBe(200);
+    const { shareToken } = (await res.json()) as { shareToken: string };
+    return { id: job.id as string, token: shareToken };
+  }
+
+  // Where the share route sends a listener, without fetching it (so no CDN
+  // copy is cached before the "stops working" checks).
+  async function audioLocation(token: string, query = "") {
+    const res = await fetch(`${baseUrl}/api/share/${token}/audio${query}`, { redirect: "manual" });
+    return { status: res.status, location: res.headers.get("location") };
   }
 
   beforeAll(async () => {
@@ -75,7 +90,8 @@ describe("public share page and audio", () => {
     ownerId = data.user!.id;
     createdUserIds.push(ownerId);
     owner = createClient(url, anonKey);
-    await owner.auth.signInWithPassword({ email, password });
+    const { data: session } = await owner.auth.signInWithPassword({ email, password });
+    ownerToken = session.session!.access_token;
     const { data: rhythm } = await admin.from("rhythms").select("id").eq("slug", "tchinkounme").single();
     rhythmId = rhythm!.id;
   });
@@ -93,36 +109,51 @@ describe("public share page and audio", () => {
     expect(html).toContain("Fête au village de Savalou");
     expect(html).toContain("Tchinkounmè");
     expect(html).toMatch(/<meta name="robots" content="noindex/);
+    expect(html).not.toContain(ownerId);
   });
 
-  it("streams the shared audio through a short-lived signed URL", async () => {
+  it("plays the shared audio from its public copy, named only by the token", async () => {
     const { token } = await sharedJob("Veillée");
-    const res = await fetch(`${baseUrl}/api/share/${token}/audio`, { redirect: "manual" });
-    expect(res.status).toBe(307);
-    const audio = await fetch(res.headers.get("location")!);
+    const { status, location } = await audioLocation(token);
+    expect(status).toBe(307);
+    expect(location).toContain(`/storage/v1/object/public/shared/${token}.wav`);
+    expect(location).not.toContain(ownerId);
+    const audio = await fetch(location!);
     expect(audio.status).toBe(200);
     expect(audio.headers.get("content-type")).toMatch(/^audio\//);
   });
 
   it("downloads the shared audio as an attachment", async () => {
     const { token } = await sharedJob("Danse");
-    const res = await fetch(`${baseUrl}/api/share/${token}/audio?download=1`, { redirect: "manual" });
-    const file = await fetch(res.headers.get("location")!);
+    const { location } = await audioLocation(token, "?download=1");
+    const file = await fetch(location!);
     expect(file.headers.get("content-disposition")).toContain("attachment");
   });
 
-  it("stops working the moment sharing is turned off", async () => {
-    const { id, token } = await sharedJob("Marché");
-    await owner.rpc("set_generation_job_sharing", { p_job_id: id, p_enabled: false });
-    expect((await fetch(`${baseUrl}/t/${token}`)).status).toBe(404);
-    expect((await fetch(`${baseUrl}/api/share/${token}/audio`, { redirect: "manual" })).status).toBe(404);
+  it("keeps shared copies impossible to list for anonymous visitors", async () => {
+    await sharedJob("Rien à lister");
+    const { data } = await anon.storage.from("shared").list("");
+    expect(data ?? []).toHaveLength(0);
   });
 
-  it("stops working once the track is deleted", async () => {
-    const { id, token } = await sharedJob("Mariage");
-    await owner.rpc("delete_generation_job", { p_job_id: id });
+  it("stops working the moment sharing is turned off, public copy included", async () => {
+    const { id, token } = await sharedJob("Marché");
+    const { location } = await audioLocation(token);
+    const off = await route(`/api/generations/${id}/share`, { method: "POST", body: JSON.stringify({ enabled: false }) });
+    expect(off.status).toBe(200);
     expect((await fetch(`${baseUrl}/t/${token}`)).status).toBe(404);
-    expect((await fetch(`${baseUrl}/api/share/${token}/audio`, { redirect: "manual" })).status).toBe(404);
+    expect((await audioLocation(token)).status).toBe(404);
+    expect((await fetch(location!)).status).not.toBe(200);
+  });
+
+  it("stops working once the track is deleted, public copy included", async () => {
+    const { id, token } = await sharedJob("Mariage");
+    const { location } = await audioLocation(token);
+    const del = await route(`/api/generations/${id}`, { method: "DELETE" });
+    expect(del.status).toBe(204);
+    expect((await fetch(`${baseUrl}/t/${token}`)).status).toBe(404);
+    expect((await audioLocation(token)).status).toBe(404);
+    expect((await fetch(location!)).status).not.toBe(200);
   });
 
   it("answers 404 for a malformed or unknown token", async () => {

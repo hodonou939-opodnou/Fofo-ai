@@ -32,7 +32,7 @@ export default async function SharedTrackPage({ params }: Props) {
   if (!track) notFound();
 
   const playable = {
-    id: track.jobId,
+    id: `shared-${token}`,
     title: track.title,
     rhythmSlug: track.rhythmSlug,
     rhythmName: track.rhythmName,
@@ -47,7 +47,7 @@ export default async function SharedTrackPage({ params }: Props) {
   return (
     <main className="mx-auto max-w-5xl px-4 pt-10 pb-16 md:px-6">
       <section className="grid items-center gap-10 md:grid-cols-2">
-        <Cover slug={track.rhythmSlug} seed={track.jobId} className="aspect-square w-full rounded-panel shadow-lift" />
+        <Cover slug={track.rhythmSlug} seed={token} className="aspect-square w-full rounded-panel shadow-lift" />
         <div>
           <p className="text-sm text-dust">Une création Fofo AI</p>
           <h1 className="mt-3 font-display text-6xl break-words text-ivory md:text-7xl">{track.title}</h1>
