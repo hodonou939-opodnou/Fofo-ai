@@ -28,5 +28,7 @@ export default defineConfig({
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"] } },
     { name: "mobile", use: { ...devices["Pixel 7"] } },
+    // The spec's narrowest target (360 px): small Android phones.
+    { name: "small-phone", use: { ...devices["Pixel 7"], viewport: { width: 360, height: 780 } } },
   ],
 });

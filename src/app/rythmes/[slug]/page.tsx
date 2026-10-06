@@ -41,7 +41,7 @@ export default async function RhythmPage({ params }: Props) {
       <section className="grid items-center gap-8 md:grid-cols-[minmax(0,5fr)_minmax(0,6fr)] md:gap-12">
         <Cover slug={rhythm.slug} seed={`rhythm-${rhythm.slug}`} className="aspect-square w-full rounded-panel shadow-lift" />
         <div>
-          <h1 className="font-display text-7xl text-ivory md:text-8xl">{display(rhythm.name)}</h1>
+          <h1 className="font-display text-[clamp(2.75rem,15vw,6rem)] break-words text-ivory">{display(rhythm.name)}</h1>
           {rhythm.alternateNames.length > 0 && (
             <p className="mt-4 text-dust">Aussi appelé {rhythm.alternateNames.map(display).join(", ")}</p>
           )}
