@@ -4,6 +4,8 @@ export type TrackStatus = "queued" | "processing" | "completed" | "failed" | "ca
 export type Track = {
   id: string;
   title: string;
+  /** The full idea, used to refill the creation box on "Réessayer". */
+  prompt?: string;
   rhythmSlug: string | null;
   rhythmName: string | null;
   durationSeconds: number | null;

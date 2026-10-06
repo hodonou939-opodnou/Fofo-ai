@@ -34,24 +34,28 @@ export default function CreationBox({
   rhythms,
   mode,
   initialRhythm,
+  initialDraft,
   onCreated,
 }: {
   rhythms: RhythmOption[];
   mode: "guest" | "signed-in";
   initialRhythm?: string;
+  /** Pre-fills the box, e.g. with a failed track's idea on "Réessayer" (remount with a new key). */
+  initialDraft?: Draft;
   onCreated?: (jobId: string, draft: Draft) => void;
 }) {
   const router = useRouter();
   const ideaId = useId();
   const statusId = useId();
+  const wantedRhythm = initialDraft?.rhythmSlug ?? initialRhythm;
   const firstRhythm =
-    (initialRhythm && rhythms.some((r) => r.slug === initialRhythm) && initialRhythm) || rhythms[0]?.slug || "";
+    (wantedRhythm && rhythms.some((r) => r.slug === wantedRhythm) && wantedRhythm) || rhythms[0]?.slug || "";
 
   const [rhythmSlug, setRhythmSlug] = useState(firstRhythm);
-  const [prompt, setPrompt] = useState("");
-  const [mood, setMood] = useState<Mood>("Festif");
-  const [energy, setEnergy] = useState<Energy>("Modérée");
-  const [durationSeconds, setDurationSeconds] = useState<DurationSeconds>(30);
+  const [prompt, setPrompt] = useState(initialDraft?.prompt ?? "");
+  const [mood, setMood] = useState<Mood>(initialDraft?.mood ?? "Festif");
+  const [energy, setEnergy] = useState<Energy>(initialDraft?.energy ?? "Modérée");
+  const [durationSeconds, setDurationSeconds] = useState<DurationSeconds>(initialDraft?.durationSeconds ?? 30);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("");
