@@ -26,12 +26,23 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    return NextResponse.redirect(new URL("/connexion", request.url));
+    // Come back to the same page after signing in.
+    const signIn = new URL("/connexion", request.url);
+    signIn.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
+    return NextResponse.redirect(signIn);
   }
 
   return response;
 }
 
 export const config = {
-  matcher: ["/studio/:path*", "/studio", "/bibliotheque/:path*", "/bibliotheque"],
+  matcher: [
+    "/studio/:path*",
+    "/studio",
+    "/bibliotheque/:path*",
+    "/bibliotheque",
+    "/compte/:path*",
+    "/compte",
+    "/nouveau-mot-de-passe",
+  ],
 };

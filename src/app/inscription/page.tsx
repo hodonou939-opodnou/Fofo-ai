@@ -1,16 +1,39 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+import AuthShell from "@/components/auth/auth-shell";
 import SignUpForm from "@/components/auth/sign-up-form";
 
-export default function SignUpPage() {
+export const metadata: Metadata = { title: "Créer un compte" };
+
+type Props = { searchParams: Promise<{ next?: string }> };
+
+export default async function SignUpPage({ searchParams }: Props) {
+  const { next } = await searchParams;
+
   return (
-    <main className="px-6 py-12">
-      <h1 className="text-2xl font-semibold mb-6">Crée ton compte Fofo AI</h1>
-      <SignUpForm />
-      <p className="mt-4 text-sm max-w-sm">
-        <Link href="/connexion" className="underline">
-          Déjà un compte ? Se connecter
-        </Link>
-      </p>
-    </main>
+    <AuthShell
+      title="Crée ton compte"
+      intro="Gratuit. Ton idée t'attend dans le Studio dès que ton compte est prêt."
+      footer={
+        <>
+          <Link href={next ? `/connexion?next=${encodeURIComponent(next)}` : "/connexion"} className="text-dust hover:text-ivory">
+            Déjà un compte ? <span className="text-gold-light">Se connecter</span>
+          </Link>
+          <p className="text-xs text-dust">
+            En créant un compte, tu acceptes les{" "}
+            <Link href="/cgu" className="underline-offset-4 hover:underline">
+              conditions générales
+            </Link>{" "}
+            et la{" "}
+            <Link href="/confidentialite" className="underline-offset-4 hover:underline">
+              politique de confidentialité
+            </Link>
+            .
+          </p>
+        </>
+      }
+    >
+      <SignUpForm next={next} />
+    </AuthShell>
   );
 }
