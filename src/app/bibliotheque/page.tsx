@@ -10,9 +10,22 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 export const metadata: Metadata = { title: "Ma bibliothèque" };
 
 const LIBRARY_PAGE_SIZE = 50;
+// "Afficher plus" loads pages cumulatively; a sane ceiling keeps one request bounded.
+const MAX_PAGES = 20;
 
-export default async function LibraryPage({ searchParams }: { searchParams: Promise<{ rythme?: string }> }) {
-  const { rythme } = await searchParams;
+function pageNumber(raw: string | undefined) {
+  const n = Number.parseInt(raw ?? "1", 10);
+  return Number.isFinite(n) ? Math.min(Math.max(n, 1), MAX_PAGES) : 1;
+}
+
+export default async function LibraryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ rythme?: string; page?: string }>;
+}) {
+  const { rythme, page: rawPage } = await searchParams;
+  const page = pageNumber(rawPage);
+  const shown = LIBRARY_PAGE_SIZE * page;
   const supabase = await createServerSupabaseClient();
 
   // Creations whose worker died never got a terminal write: fail them first,
@@ -22,8 +35,12 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
 
   const [rhythms, tracks] = await Promise.all([
     getPublishedRhythms(supabase),
-    listTracks(supabase, { limit: LIBRARY_PAGE_SIZE, rhythmSlug: rythme }),
+    // One row more than shown tells us whether there is a next page.
+    listTracks(supabase, { limit: shown + 1, rhythmSlug: rythme }),
   ]);
+  const hasMore = tracks.length > shown;
+  const visible = tracks.slice(0, shown);
+  const nextPage = new URLSearchParams({ ...(rythme ? { rythme } : {}), page: String(page + 1) });
   const activeRhythm = rhythms.find((r) => r.slug === rythme);
 
   const filterClass = (active: boolean) =>
@@ -54,8 +71,18 @@ export default async function LibraryPage({ searchParams }: { searchParams: Prom
       </div>
 
       <div className="mt-10">
-        {tracks.length > 0 ? (
-          <LibraryView initialTracks={tracks} />
+        {visible.length > 0 ? (
+          <>
+            {/* Remount on a new page or filter so the grid never keeps a stale list. */}
+            <LibraryView key={`${rythme ?? "tous"}-${page}`} initialTracks={visible} />
+            {hasMore && (
+              <div className="mt-10 flex justify-center">
+                <Button href={`/bibliotheque?${nextPage}`} variant="ghost">
+                  Afficher plus
+                </Button>
+              </div>
+            )}
+          </>
         ) : activeRhythm ? (
           <p className="rounded-panel border border-dashed border-ember px-6 py-12 text-center text-dust">
             Aucune création avec ce rythme pour l&apos;instant.

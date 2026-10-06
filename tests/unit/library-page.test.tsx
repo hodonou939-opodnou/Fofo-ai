@@ -61,6 +61,7 @@ function job(id: string, overrides: Record<string, unknown> = {}) {
 }
 
 async function renderLibrary(rythme?: string) {
+  // page omitted: first page
   render(<PlayerProvider>{await LibraryPage({ searchParams: Promise.resolve({ rythme }) })}</PlayerProvider>);
 }
 
@@ -78,10 +79,33 @@ describe("LibraryPage", () => {
     expect(calls.indexOf("rpc")).toBeLessThan(firstJobQuery);
   });
 
-  it("hides deleted creations and lists at most 50", async () => {
+  it("hides deleted creations and asks for one row more than a page, to know if there are more", async () => {
     await renderLibrary();
     expect(calls).toContain('is:["deleted_at",null]');
-    expect(calls).toContain("limit:[50]");
+    expect(calls).toContain("limit:[51]");
+  });
+
+  it("offers the next page when there are more than 50 creations, and shows only 50", async () => {
+    jobRows = Array.from({ length: 51 }, (_, i) => job(`p${i}`));
+    await renderLibrary();
+    expect(within(screen.getByRole("list", { name: "Ma bibliothèque" })).getAllByRole("listitem")).toHaveLength(50);
+    expect(screen.getByRole("link", { name: "Afficher plus" })).toHaveAttribute("href", "/bibliotheque?page=2");
+  });
+
+  it("loads the first two pages together on page 2, keeping the rhythm filter", async () => {
+    jobRows = Array.from({ length: 101 }, (_, i) => job(`q${i}`));
+    render(
+      <PlayerProvider>
+        {await LibraryPage({ searchParams: Promise.resolve({ rythme: "zinli", page: "2" }) })}
+      </PlayerProvider>
+    );
+    expect(calls).toContain("limit:[101]");
+    expect(screen.getByRole("link", { name: "Afficher plus" })).toHaveAttribute("href", "/bibliotheque?rythme=zinli&page=3");
+  });
+
+  it("offers no next page when everything is shown", async () => {
+    await renderLibrary();
+    expect(screen.queryByRole("link", { name: "Afficher plus" })).not.toBeInTheDocument();
   });
 
   it("shows every creation as a cover card, failed ones with their French message", async () => {
