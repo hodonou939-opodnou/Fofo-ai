@@ -22,7 +22,7 @@ Supabase (Postgres RLS, Storage, Auth via `@supabase/ssr`), Vitest + Testing Lib
 
 ## Global Constraints
 
-- Tokens only, no hard-coded colours in components: `ink #0B0B0C`, `panel #151517`, `line #26262A`, `cream #F4EEDF`, `muted #A39E92`, `gold-1 #E2BF6A`, `gold-2 #C9A24B`, `gold-3 #8C6A2F`, `danger #E5484D`, `success #46A758`.
+- Tokens only, no hard-coded colours in components: `night #0F0C09`, `soot #1A1511`, `soot-raised #221C16`, `ember #2E261F`, `ivory #F3EBDD`, `dust #A69A88`, `paper #FBF8F3`, `gold-light #E4C77A`, `gold #C9A24B`, `bronze #8C6A2F`, `oxblood #5C1B12`, `lagoon #0D4343`, `dusk #33194F`, `danger #E5484D`, `success #46A758`.
 - Single font: Noto Sans (latin + latin-ext subsets for Fon diacritics).
 - Never generate Fon UI text; Fon shows "bientôt disponible" until `messages/fon.json` is supplied by a native speaker.
 - Cultural content (descriptions, artists, roles, styles, video links) comes verbatim from `Liste_Rythmes_Tchinkoume_Toba_Zinli_Artistes.xlsx`.

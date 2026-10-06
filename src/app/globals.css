@@ -1,15 +1,105 @@
 @import "tailwindcss";
 
+/*
+ * Fofo AI design tokens (spec 2026-10-06 §3). Dark & premium, drawn from the
+ * logo (black + gold) and from the rhythms themselves: a warm black like a
+ * smoked calabash, ivory text, gold reserved for actions and the creation box,
+ * and one deep colour per rhythm for its cover art.
+ * Components use these tokens only — never raw hex values.
+ */
 @theme {
-  --color-ink: #111111;
-  --color-cream: #F7F3EA;
-  --color-gold-start: #C9A24B;
-  --color-gold-end: #8C6A2F;
-  --font-sans: "Noto Sans", system-ui, sans-serif;
+  --color-night: #0f0c09;
+  --color-soot: #1a1511;
+  --color-soot-raised: #221c16;
+  --color-ember: #2e261f;
+  --color-ivory: #f3ebdd;
+  --color-paper: #fbf8f3; /* the logo artwork's own cream background */
+  --color-dust: #a69a88;
+  --color-gold: #c9a24b;
+  --color-gold-light: #e4c77a;
+  --color-bronze: #8c6a2f;
+  --color-oxblood: #5c1b12;
+  --color-lagoon: #0d4343;
+  --color-dusk: #33194f;
+  --color-danger: #e5484d;
+  --color-success: #46a758;
+
+  --font-sans: var(--font-noto), "Noto Sans", system-ui, sans-serif;
+
+  --radius-tile: 0.75rem;
+  --radius-panel: 1.25rem;
+
+  --shadow-lift: 0 18px 50px -20px rgb(0 0 0 / 0.75);
+  --shadow-glow: 0 0 0 1px rgb(201 162 75 / 0.35), 0 18px 60px -24px rgb(201 162 75 / 0.45);
+
+  --animate-shimmer: shimmer 1.6s linear infinite;
+
+  @keyframes shimmer {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
+}
+
+/* Condensed heavy display type: one family (Noto Sans covers Fon diacritics),
+   used at a narrower width for poster-like headlines. */
+@utility font-display {
+  font-family: var(--font-sans);
+  font-weight: 800;
+  font-stretch: 75%;
+  letter-spacing: -0.01em;
+  line-height: 0.95;
+}
+
+@utility bg-gold {
+  background-image: linear-gradient(135deg, var(--color-gold-light), var(--color-gold) 55%, var(--color-bronze));
+}
+
+@utility shimmer-surface {
+  background-image: linear-gradient(
+    110deg,
+    var(--color-soot) 30%,
+    var(--color-soot-raised) 50%,
+    var(--color-soot) 70%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+}
+
+html {
+  color-scheme: dark;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
-  background-color: var(--color-cream);
-  color: var(--color-ink);
+  background-color: var(--color-night);
+  color: var(--color-ivory);
   font-family: var(--font-sans);
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgb(201 162 75 / 0.35);
+  color: var(--color-ivory);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-gold-light);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

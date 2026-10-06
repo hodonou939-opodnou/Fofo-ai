@@ -30,9 +30,10 @@ limites, tests d'intégration existants). On ne réécrit pas du code sûr et te
 
 - **Sombre & premium** : fond noir profond, accents dorés en dégradé, texte crème.
 - Tokens (`src/app/globals.css`, `@theme`) — jamais de couleur codée en dur dans un composant :
-  `ink #0B0B0C` (fond), `panel #151517` (surfaces), `line #26262A` (bordures), `cream #F4EEDF` (texte),
-  `muted #A39E92` (texte secondaire), `gold-1 #E2BF6A`, `gold-2 #C9A24B`, `gold-3 #8C6A2F` (dégradé),
-  `danger #E5484D`, `success #46A758`.
+  `night #0F0C09` (fond, noir chaud de calebasse fumée), `soot #1A1511` / `soot-raised #221C16` (surfaces),
+  `ember #2E261F` (bordures), `ivory #F3EBDD` (texte), `dust #A69A88` (texte secondaire), `paper #FBF8F3` (fond du
+  logo), `gold-light #E4C77A` → `gold #C9A24B` → `bronze #8C6A2F` (dégradé), couleurs de rythme `oxblood #5C1B12`,
+  `lagoon #0D4343`, `dusk #33194F`, `danger #E5484D`, `success #46A758`.
 - Police unique **Noto Sans** (diacritiques Fon). Rayons généreux (12–20 px), ombres douces, halo doré discret.
 - Mouvement léger (apparition, lueur sur le bouton Générer, shimmer pendant la création) ; respect de
   `prefers-reduced-motion`.
