@@ -11,6 +11,12 @@ const port = new URL(baseURL).port || "3000";
 export default defineConfig({
   testDir: "./tests/e2e",
   timeout: 60_000,
+  // A dev server rendering pages that each make several round-trips to the
+  // remote Supabase project, under parallel workers, can take a few seconds to
+  // finish a navigation (measured: /studio avg 1.2 s, max 4.4 s). The default
+  // 5 s assertion wait sits right on that edge, so assertions get 15 s — the
+  // checks themselves are unchanged.
+  expect: { timeout: 15_000 },
   webServer: {
     command: `npm run dev -- --port ${port}`,
     url: baseURL,

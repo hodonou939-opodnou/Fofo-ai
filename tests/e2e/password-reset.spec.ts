@@ -41,7 +41,8 @@ test("a member who forgot their password sets a new one from the recovery link",
 test("a used or expired recovery link is explained, not silently ignored", async ({ page }) => {
   await page.goto("/auth/confirm?token_hash=deja-utilise&type=recovery&next=/nouveau-mot-de-passe");
   await expect(page).toHaveURL(/\/connexion\?erreur=lien/);
-  await expect(page.getByRole("alert")).toHaveText("Ce lien n'est plus valide. Demande un nouveau lien.");
+  // Next.js also renders an (empty) role=alert route announcer: match ours by its text.
+  await expect(page.getByRole("alert").filter({ hasText: "Ce lien" })).toHaveText("Ce lien n'est plus valide. Demande un nouveau lien.");
 });
 
 test("the forgot-password form always tells the visitor what happened", async ({ page }) => {

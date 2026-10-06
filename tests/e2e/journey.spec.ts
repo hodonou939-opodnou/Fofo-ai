@@ -13,14 +13,14 @@ test("a visitor creates, plays, shares, renames and deletes a track", async ({ p
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Fais vivre les rythmes du Bénin" })).toBeVisible();
   await page.getByLabel("Décris ton idée").fill(idea);
-  await page.getByRole("button", { name: "Toba" }).click();
+  await page.getByRole("button", { name: "Toba", exact: true }).click();
   await page.getByRole("button", { name: "Générer" }).click();
   await expect(page).toHaveURL(/\/inscription\?next=/);
 
   await signUp(page, uniqueEmail("journey"));
   await expect(page).toHaveURL(/\/studio/);
   await expect(page.getByLabel("Décris ton idée")).toHaveValue(idea);
-  await expect(page.getByRole("button", { name: "Toba" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Toba", exact: true })).toHaveAttribute("aria-pressed", "true");
 
   // 2. Create: the card appears at once, then becomes playable.
   await page.getByRole("button", { name: "Générer" }).click();
@@ -58,7 +58,7 @@ test("a visitor creates, plays, shares, renames and deletes a track", async ({ p
 
   // 6. Delete: the card disappears, the share link dies, the library is empty.
   await page.getByRole("button", { name: "Options : Danse de test" }).click();
-  await page.getByRole("button", { name: "Supprimer" }).click();
+  await page.getByRole("button", { name: "Supprimer", exact: true }).click();
   await page.getByRole("button", { name: "Supprimer définitivement" }).click();
   await expect(grid).toHaveCount(0);
   expect((await friendPage.goto(shareUrl))?.status()).toBe(404);
@@ -77,9 +77,9 @@ test("a visitor creates, plays, shares, renames and deletes a track", async ({ p
 test("a rhythm page tells its story and starts a creation with that rhythm", async ({ page }) => {
   await page.goto("/rythmes/zinli");
   await expect(page.getByRole("heading", { name: "Zinli", level: 1 })).toBeVisible();
-  await expect(page.getByText("Abomey (Zou)")).toBeVisible();
+  await expect(page.getByText("Abomey (Zou)", { exact: true })).toBeVisible();
   await expect(page.getByRole("list", { name: "Les maîtres du rythme" })).toContainText("Alèkpéhanhou");
   await expect(page.getByRole("button", { name: /lire la vidéo/i }).first()).toBeVisible();
   await page.getByRole("link", { name: "Créer avec ce rythme" }).click();
-  await expect(page.getByRole("button", { name: "Zinli" })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("button", { name: "Zinli", exact: true })).toHaveAttribute("aria-pressed", "true");
 });

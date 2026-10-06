@@ -6,6 +6,7 @@ import Button from "@/components/ui/button";
 import ReferenceList, { display } from "@/components/rhythms/reference-list";
 import VideoFacade from "@/components/rhythms/video-facade";
 import { getPublishedRhythms, getRhythmWithReferences } from "@/lib/rhythms/queries";
+import { masters, resolveSameArtist } from "@/lib/rhythms/references";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type Props = { params: Promise<{ slug: string }> };
@@ -31,7 +32,7 @@ export default async function RhythmPage({ params }: Props) {
   if (!page) notFound();
 
   const { rhythm, references } = page;
-  const videos = references.filter((r) => r.videoUrl);
+  const videos = resolveSameArtist(references).filter((r) => r.videoUrl);
   const others = all.filter((r) => r.slug !== rhythm.slug);
   const createHref = user ? `/studio?rythme=${rhythm.slug}` : `/?rythme=${rhythm.slug}#creer`;
 
@@ -88,7 +89,7 @@ export default async function RhythmPage({ params }: Props) {
             Les maîtres du rythme
           </h2>
           <div className="mt-8">
-            <ReferenceList references={references} />
+            <ReferenceList references={masters(references)} />
           </div>
         </section>
       )}

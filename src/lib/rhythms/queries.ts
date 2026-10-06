@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { resolveSameArtist } from "@/lib/rhythms/references";
 import { youtubeId } from "@/lib/rhythms/youtube";
 
 // Read-only access to the rhythm catalog and its cultural content
@@ -115,15 +116,25 @@ export async function getFeaturedVideos(supabase: SupabaseClient): Promise<Featu
       | null) ?? [];
 
   return rows.flatMap((r) => {
-    const ref = r.rhythm_references.find((x) => youtubeId(x.video_url));
-    if (!ref?.video_url) return [];
+    const refs = resolveSameArtist(
+      r.rhythm_references.map((x, i) => ({
+        id: String(i),
+        artist: x.artist,
+        role: "",
+        style: null,
+        knownWorks: x.known_works,
+        videoUrl: x.video_url,
+      }))
+    );
+    const ref = refs.find((x) => youtubeId(x.videoUrl));
+    if (!ref?.videoUrl) return [];
     return [
       {
         rhythmSlug: r.slug,
         rhythmName: r.name,
         artist: ref.artist,
-        title: ref.known_works?.split(" ; ")[0] ?? ref.artist,
-        url: ref.video_url,
+        title: ref.knownWorks?.split(" ; ")[0] ?? ref.artist,
+        url: ref.videoUrl,
       },
     ];
   });

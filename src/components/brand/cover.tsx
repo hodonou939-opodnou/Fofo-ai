@@ -41,6 +41,12 @@ export default function Cover({
   );
 }
 
+// Server (Node) and browser may differ in the last digits of Math.cos/sin;
+// rounding keeps the SVG attributes identical so hydration matches.
+function round2(n: number) {
+  return Math.round(n * 100) / 100;
+}
+
 function Motif({
   motif,
   cx,
@@ -85,7 +91,7 @@ function Motif({
         <g>
           <mask id={`crescent-${uid}`}>
             <rect width="100" height="100" fill="white" />
-            <circle cx={cx + 9 + phase} cy={cy - 6} r="17" fill="black" />
+            <circle cx={round2(cx + 9 + phase)} cy={round2(cy - 6)} r="17" fill="black" />
           </mask>
           <circle
             cx={cx}
@@ -101,8 +107,8 @@ function Motif({
               return (
                 <circle
                   key={i}
-                  cx={cx + Math.cos(a) * 34}
-                  cy={cy + Math.sin(a) * 34}
+                  cx={round2(cx + Math.cos(a) * 34)}
+                  cy={round2(cy + Math.sin(a) * 34)}
                   r={accent ? 2.2 : 1.1}
                   opacity={accent ? 0.95 : 0.55}
                 />
