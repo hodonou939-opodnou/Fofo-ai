@@ -21,7 +21,8 @@ const STEPS = [
   },
 ];
 
-export default async function HomePage() {
+export default async function HomePage({ searchParams }: { searchParams: Promise<{ rythme?: string }> }) {
+  const { rythme } = await searchParams;
   const supabase = await createServerSupabaseClient();
   const [
     {
@@ -47,6 +48,7 @@ export default async function HomePage() {
             <CreationBox
               rhythms={rhythms.map((r) => ({ slug: r.slug, name: r.name }))}
               mode={user ? "signed-in" : "guest"}
+              initialRhythm={rythme}
             />
           </div>
           {user && (
