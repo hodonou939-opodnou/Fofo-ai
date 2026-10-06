@@ -46,6 +46,12 @@ describe("GET /auth/confirm", () => {
     expect(res.headers.get("location")).toBe("http://localhost:3000/studio");
   });
 
+  it("never redirects outside the site through dot segments", async () => {
+    exchangeCodeForSession.mockResolvedValue({ error: null });
+    const res = await get("?code=abc&next=/.//evil.example");
+    expect(res.headers.get("location")).toBe("http://localhost:3000/studio");
+  });
+
   it("ignores an unknown token type", async () => {
     const res = await get("?token_hash=hash&type=nonsense");
     expect(verifyOtp).not.toHaveBeenCalled();

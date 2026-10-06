@@ -14,6 +14,9 @@ describe("safeNextPath", () => {
     ["backslash trick", "/\\evil.example"],
     ["encoded backslash", "/%5Cevil.example"],
     ["javascript url", "javascript:alert(1)"],
+    ["dot segment", "/.//evil.example"],
+    ["parent segment", "/x/..//evil.example"],
+    ["encoded dot segment", "/%2e//evil.example"],
     ["relative", "studio"],
     ["empty", ""],
   ])("refuses a %s target and falls back to the Studio", (_label, target) => {
