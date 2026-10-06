@@ -1,65 +1,114 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import LibraryPage from "@/app/bibliotheque/page";
+import PlayerProvider from "@/components/player/player-provider";
 import { STALE_JOB_THRESHOLD_SECONDS } from "@/lib/generation/stale-jobs";
 
+vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+vi.mock("@/lib/supabase/client", () => ({
+  createBrowserSupabaseClient: () => ({
+    from: () => ({ select: () => ({ eq: () => ({ single: vi.fn().mockResolvedValue({ data: null, error: null }) }) }) }),
+    rpc: vi.fn(),
+  }),
+}));
+
 const calls: string[] = [];
-const rpc = vi.fn<(fn: string, args: unknown) => Promise<{ data: number; error: null }>>(async () => {
+let jobRows: unknown[] = [];
+
+function builder(result: () => unknown) {
+  const b: Record<string, unknown> = {};
+  for (const m of ["select", "is", "order", "eq", "limit"]) {
+    b[m] = vi.fn((...args: unknown[]) => {
+      calls.push(`${m}:${JSON.stringify(args)}`);
+      return b;
+    });
+  }
+  b.then = (resolve: (v: unknown) => unknown) => Promise.resolve({ data: result(), error: null }).then(resolve);
+  return b;
+}
+
+const rhythmRows = [
+  { slug: "tchinkounme", name: "Tchinkounmè", region: null, description_fr: "", alternate_names: [], instruments: [], cultural_review_status: "unverified" },
+  { slug: "zinli", name: "Zinli", region: null, description_fr: "", alternate_names: [], instruments: [], cultural_review_status: "unverified" },
+];
+
+const rpc = vi.fn(async () => {
   calls.push("rpc");
   return { data: 0, error: null };
 });
-const limit = vi.fn<(count: number) => Promise<{ data: unknown[]; error: null }>>(async () => ({
-  data: [
-    { id: "j1", prompt: "une fête", status: "completed", created_at: "", rhythms: { name: "Zinli" } },
-    { id: "j2", prompt: "un mariage", status: "queued", created_at: "", rhythms: { name: "Toba" } },
-    { id: "j3", prompt: "une veillée", status: "failed", created_at: "", rhythms: null },
-  ],
-  error: null,
-}));
-const select = vi.fn(() => {
-  calls.push("select");
-  return { order: () => ({ limit }) };
-});
 
 vi.mock("@/lib/supabase/server", () => ({
-  createServerSupabaseClient: async () => ({ rpc, from: () => ({ select }) }),
+  createServerSupabaseClient: async () => ({
+    rpc,
+    from: (table: string) => (table === "rhythms" ? builder(() => rhythmRows) : builder(() => jobRows)),
+  }),
 }));
+
+function job(id: string, overrides: Record<string, unknown> = {}) {
+  return {
+    id,
+    title: `Création ${id}`,
+    prompt: `idée ${id}`,
+    status: "completed",
+    error_message: null,
+    share_token: null,
+    created_at: "2026-10-06T10:00:00Z",
+    duration_seconds: 30,
+    rhythms: { slug: "zinli", name: "Zinli" },
+    audio_assets: { duration_seconds: 30 },
+    ...overrides,
+  };
+}
+
+async function renderLibrary(rythme?: string) {
+  render(<PlayerProvider>{await LibraryPage({ searchParams: Promise.resolve({ rythme }) })}</PlayerProvider>);
+}
 
 beforeEach(() => {
   calls.length = 0;
+  jobRows = [job("j1"), job("j2", { status: "failed", error_message: "La génération a échoué. Réessaie dans quelques instants." })];
   vi.clearAllMocks();
 });
 
 describe("LibraryPage", () => {
-  it("fails the user's stale jobs before listing them", async () => {
-    render(await LibraryPage());
-
-    expect(rpc).toHaveBeenCalledWith("fail_stale_generation_jobs", {
-      p_stale_after_seconds: STALE_JOB_THRESHOLD_SECONDS,
-    });
-    expect(calls).toEqual(["rpc", "select"]);
+  it("fails the user's stale creations before listing them", async () => {
+    await renderLibrary();
+    expect(rpc).toHaveBeenCalledWith("fail_stale_generation_jobs", { p_stale_after_seconds: STALE_JOB_THRESHOLD_SECONDS });
+    const firstJobQuery = calls.findIndex((c) => c.startsWith("is:"));
+    expect(calls.indexOf("rpc")).toBeLessThan(firstJobQuery);
   });
 
-  it("lists at most 50 jobs", async () => {
-    render(await LibraryPage());
-
-    expect(limit).toHaveBeenCalledWith(50);
+  it("hides deleted creations and lists at most 50", async () => {
+    await renderLibrary();
+    expect(calls).toContain('is:["deleted_at",null]');
+    expect(calls).toContain("limit:[50]");
   });
 
-  it("labels unfinished jobs in French", async () => {
-    render(await LibraryPage());
-
-    expect(screen.getByText("Statut : En file d'attente")).toBeInTheDocument();
-    expect(screen.getByText("Statut : Échec")).toBeInTheDocument();
-    expect(screen.queryByText(/queued|failed/)).not.toBeInTheDocument();
+  it("shows every creation as a cover card, failed ones with their French message", async () => {
+    await renderLibrary();
+    const grid = screen.getByRole("list", { name: "Ma bibliothèque" });
+    expect(within(grid).getAllByRole("listitem")).toHaveLength(2);
+    expect(screen.getByRole("button", { name: "Écouter : Création j1" })).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("La génération a échoué. Réessaie dans quelques instants.");
   });
 
-  it("renders a lazy player for completed jobs", async () => {
-    const { container } = render(await LibraryPage());
+  it("filters by rhythm from the address and marks the active filter", async () => {
+    await renderLibrary("zinli");
+    expect(calls).toContain('eq:["rhythms.slug","zinli"]');
+    const filters = screen.getByRole("navigation", { name: "Filtrer par rythme" });
+    expect(within(filters).getByRole("link", { name: "Zinli" })).toHaveAttribute("aria-current", "page");
+    expect(within(filters).getByRole("link", { name: "Tous" })).toHaveAttribute("href", "/bibliotheque");
+  });
 
-    const players = container.querySelectorAll("audio");
-    expect(players).toHaveLength(1);
-    expect(players[0]).toHaveAttribute("preload", "none");
-    expect(players[0]).toHaveAttribute("src", "/api/audio/j1");
+  it("invites a first creation when the library is empty", async () => {
+    jobRows = [];
+    await renderLibrary();
+    expect(screen.getByRole("link", { name: "Créer ma première musique" })).toHaveAttribute("href", "/studio");
+  });
+
+  it("says so when a rhythm filter matches nothing", async () => {
+    jobRows = [];
+    await renderLibrary("zinli");
+    expect(screen.getByText("Aucune création avec ce rythme pour l'instant.")).toBeInTheDocument();
   });
 });
