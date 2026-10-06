@@ -55,9 +55,12 @@ export default function SiteHeader({ user }: { user: HeaderUser }) {
               Se connecter
             </Link>
           )}
-          <Button href={user ? "/studio" : "/#creer"} size="sm" className="hidden sm:inline-flex">
-            Créer ma musique
-          </Button>
+          {/* Wrapped: a display utility on the button itself would override "hidden". */}
+          <span className="hidden sm:inline-flex">
+            <Button href={user ? "/studio" : "/#creer"} size="sm">
+              Créer ma musique
+            </Button>
+          </span>
         </div>
       </div>
     </header>

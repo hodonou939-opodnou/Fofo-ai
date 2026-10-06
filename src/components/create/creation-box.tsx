@@ -174,8 +174,10 @@ export default function CreationBox({
         ))}
       </div>
 
-      <div className="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
+      {/* Phones: mood on its own row so no option label gets cut off. */}
+      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-3">
         <Select
+          className="col-span-2 sm:col-span-1"
           label="Ambiance"
           value={mood}
           onChange={(v) => setMood(v as Mood)}

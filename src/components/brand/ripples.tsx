@@ -4,7 +4,7 @@ export default function Ripples({ className = "" }: { className?: string }) {
   return (
     <svg viewBox="0 0 1000 1000" className={className} aria-hidden>
       <defs>
-        <radialGradient id="ripples-fade" cx="50%" cy="50%" r="50%">
+        <radialGradient id="ripples-fade" gradientUnits="userSpaceOnUse" cx="500" cy="500" r="500">
           <stop offset="0%" stopColor="var(--color-gold-light)" stopOpacity="1" />
           <stop offset="70%" stopColor="var(--color-gold)" stopOpacity="0.5" />
           <stop offset="100%" stopColor="var(--color-bronze)" stopOpacity="0" />
