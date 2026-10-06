@@ -1,16 +1,16 @@
+import type { Metadata } from "next";
+import LegalPage from "@/components/layout/legal-page";
+
+export const metadata: Metadata = { title: "Conditions générales" };
+
 export default function TermsPage() {
   return (
-    <main className="px-6 py-12 max-w-2xl prose">
-      <h1>Conditions générales d&apos;utilisation</h1>
-      <p className="italic">
-        Version préliminaire — ce document sera revu par un professionnel du droit avant le
-        lancement public.
-      </p>
+    <LegalPage title="Conditions générales d'utilisation">
       <p>
-        En utilisant Fofo AI, tu acceptes que les musiques générées soient des créations
-        originales produites par un système d&apos;intelligence artificielle, inspirées de rythmes
-        traditionnels béninois, et non des enregistrements de musiciens existants.
+        En utilisant Fofo AI, tu acceptes que les musiques générées soient des créations originales produites par un
+        système d&apos;intelligence artificielle, inspirées de rythmes traditionnels béninois, et non des
+        enregistrements de musiciens existants.
       </p>
-    </main>
+    </LegalPage>
   );
 }
