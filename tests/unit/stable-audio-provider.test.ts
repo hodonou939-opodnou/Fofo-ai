@@ -86,7 +86,9 @@ describe("StableAudioProvider", () => {
     expect(await generate()).toMatchObject({ ok: false, kind: "refused" });
   });
 
-  it.each([401, 429, 500, 503])("classifies HTTP %i as unavailable", async (status) => {
+  // 402 = the Stability account is out of credits: the user can't fix that by
+  // rephrasing, so it must not be classified as an invalid request.
+  it.each([401, 402, 429, 500, 503])("classifies HTTP %i as unavailable", async (status) => {
     mockFetch(async () => errorResponse(status, async () => ({ errors: ["nope"] })));
     expect(await generate()).toMatchObject({ ok: false, kind: "unavailable" });
   });

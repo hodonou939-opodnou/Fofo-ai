@@ -73,7 +73,8 @@ export class StableAudioProvider implements MusicGenerationProvider {
 
 function failureKindForStatus(status: number): GenerationFailureKind {
   if (status === 403) return "refused"; // content moderation
-  if (status >= 500 || status === 401 || status === 429) return "unavailable";
+  // 402: the account is out of credits — our problem, not the user's request.
+  if (status >= 500 || status === 401 || status === 402 || status === 429) return "unavailable";
   return "invalid";
 }
 
