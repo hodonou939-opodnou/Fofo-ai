@@ -41,8 +41,8 @@ export class ElevenLabsProvider implements MusicGenerationProvider {
       });
 
       if (!response.ok) {
-        const { status, text } = await readError(response);
-        return { ok: false, kind: failureKind(response.status, status), detail: text };
+        const { status, type, text } = await readError(response);
+        return { ok: false, kind: failureKind(response.status, status, type), detail: text };
       }
 
       const contentType = response.headers.get("content-type") ?? "";
@@ -69,30 +69,33 @@ export class ElevenLabsProvider implements MusicGenerationProvider {
   }
 }
 
-function failureKind(httpStatus: number, apiStatus: string | null): GenerationFailureKind {
+function failureKind(httpStatus: number, apiStatus: string | null, apiType: string | null): GenerationFailureKind {
   if (apiStatus && REFUSALS.has(apiStatus)) return "refused";
+  // A bad or under-permissioned key can come back as HTTP 400 (seen in
+  // production) — still our configuration problem, never the user's request.
+  if (apiType === "authentication_error") return "unavailable";
   // 401 key/permission, 402 no paid plan or credits, 429 rate limit, 5xx outage.
   if (httpStatus >= 500 || httpStatus === 401 || httpStatus === 402 || httpStatus === 429) return "unavailable";
   return "invalid";
 }
 
-async function readError(response: Response): Promise<{ status: string | null; text: string }> {
+async function readError(response: Response): Promise<{ status: string | null; type: string | null; text: string }> {
   const prefix = `ElevenLabs HTTP ${response.status}`;
   try {
     const body = (await response.json()) as { detail?: unknown };
     const detail = body?.detail;
     if (detail && typeof detail === "object" && !Array.isArray(detail)) {
-      const d = detail as { status?: string; message?: string };
-      return { status: d.status ?? null, text: `${prefix}: ${[d.status, d.message].filter(Boolean).join(" — ")}` };
+      const d = detail as { status?: string; type?: string; message?: string };
+      return { status: d.status ?? null, type: d.type ?? null, text: `${prefix}: ${[d.status, d.message].filter(Boolean).join(" — ")}` };
     }
     if (Array.isArray(detail)) {
       const messages = detail.map((e) => (e as { msg?: string })?.msg).filter(Boolean);
-      return { status: null, text: `${prefix}: ${messages.join("; ")}` };
+      return { status: null, type: null, text: `${prefix}: ${messages.join("; ")}` };
     }
   } catch {
     // body wasn't JSON (or couldn't be read): the HTTP status is the detail
   }
-  return { status: null, text: prefix };
+  return { status: null, type: null, text: prefix };
 }
 
 function isAbortError(err: unknown): boolean {

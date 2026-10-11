@@ -85,6 +85,24 @@ describe("ElevenLabsProvider", () => {
     expect(await generate()).toMatchObject({ ok: false, kind: "unavailable" });
   });
 
+  // Observed in production 2026-10-11: a bad key comes back as HTTP 400 (not 401)
+  // with detail.type "authentication_error" — never the user's fault.
+  it("classifies an authentication error as unavailable even when ElevenLabs sends it as HTTP 400", async () => {
+    mockFetch(async () =>
+      errorResponse(400, {
+        detail: {
+          type: "authentication_error",
+          code: "invalid_api_key",
+          status: "api_key_id_used_as_api_key",
+          message: "API key ID used as API key - only valid API keys can be used.",
+        },
+      })
+    );
+    const result = await generate();
+    expect(result).toMatchObject({ ok: false, kind: "unavailable" });
+    if (!result.ok) expect(result.detail).toContain("api_key_id_used_as_api_key");
+  });
+
   it("classifies another 4xx (e.g. a validation error) as invalid and keeps the API's text", async () => {
     mockFetch(async () => errorResponse(422, { detail: [{ loc: ["body", "music_length_ms"], msg: "too short", type: "value_error" }] }));
     const result = await generate();
