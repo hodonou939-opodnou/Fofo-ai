@@ -12,14 +12,14 @@ export default function SiteFooter() {
             Des musiques originales nées des rythmes du Bénin, pour celles et ceux qui veulent les faire vivre.
           </p>
         </div>
-        <nav aria-label="Pied de page" className="flex flex-col gap-2.5 text-sm">
-          <Link href="/rythmes" className="text-dust hover:text-ivory">
+        <nav aria-label="Pied de page" className="flex flex-col text-sm">
+          <Link href="/rythmes" className="inline-flex min-h-11 items-center text-dust hover:text-ivory">
             Les rythmes
           </Link>
-          <Link href="/confidentialite" className="text-dust hover:text-ivory">
+          <Link href="/confidentialite" className="inline-flex min-h-11 items-center text-dust hover:text-ivory">
             Confidentialité
           </Link>
-          <Link href="/cgu" className="text-dust hover:text-ivory">
+          <Link href="/cgu" className="inline-flex min-h-11 items-center text-dust hover:text-ivory">
             Conditions générales
           </Link>
         </nav>

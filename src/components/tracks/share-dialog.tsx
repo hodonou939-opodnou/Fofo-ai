@@ -119,7 +119,7 @@ export default function ShareDialog({
             type="button"
             onClick={() => void stop()}
             disabled={stopping}
-            className="self-start text-sm text-dust underline-offset-4 hover:text-danger hover:underline disabled:opacity-50"
+            className="min-h-11 self-start text-sm text-dust underline-offset-4 hover:text-danger hover:underline disabled:opacity-50"
           >
             Arrêter le partage
           </button>

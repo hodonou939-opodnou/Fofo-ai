@@ -16,7 +16,7 @@ export default async function SignUpPage({ searchParams }: Props) {
       intro="Gratuit. Ton idée t'attend dans le Studio dès que ton compte est prêt."
       footer={
         <>
-          <Link href={next ? `/connexion?next=${encodeURIComponent(next)}` : "/connexion"} className="text-dust hover:text-ivory">
+          <Link href={next ? `/connexion?next=${encodeURIComponent(next)}` : "/connexion"} className="inline-flex min-h-11 items-center text-dust hover:text-ivory">
             Déjà un compte ? <span className="text-gold-light">Se connecter</span>
           </Link>
           <p className="text-xs text-dust">

@@ -51,7 +51,7 @@ export default function SiteHeader({ user }: { user: HeaderUser }) {
           {user ? (
             <AccountMenu email={user.email} />
           ) : (
-            <Link href="/connexion" className="rounded-full px-3.5 py-2 text-sm text-ivory hover:text-gold-light">
+            <Link href="/connexion" className="inline-flex min-h-11 items-center rounded-full px-3.5 text-sm whitespace-nowrap text-ivory hover:text-gold-light">
               Se connecter
             </Link>
           )}

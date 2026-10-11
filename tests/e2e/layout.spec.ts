@@ -8,8 +8,13 @@ test("on a phone the header stays on one line, without the duplicate call to act
   const header = page.getByRole("banner");
   await expect(header.getByRole("link", { name: "Créer ma musique" })).toBeHidden();
   const signIn = header.getByRole("link", { name: "Se connecter" });
-  const box = await signIn.boundingBox();
-  expect(box!.height).toBeLessThan(40);
+  // One line of text, whatever the (44 px) box height: count the text's line boxes.
+  const lines = await signIn.evaluate((el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return new Set(Array.from(range.getClientRects()).map((r) => Math.round(r.top))).size;
+  });
+  expect(lines).toBe(1);
 });
 
 const PAGES = [
@@ -50,5 +55,23 @@ test("no member page scrolls sideways on a phone", async ({ page }, info) => {
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth
     );
     expect(overflow, `${path} is wider than the screen by ${overflow}px`).toBeLessThanOrEqual(0);
+  }
+});
+
+// Spec §8 / Global Constraint: tap targets of at least 44 px on phones.
+test("controls are at least 44 px tall on a phone", async ({ page }, info) => {
+  test.skip(info.project.name === "desktop", "phone-only check");
+  await page.goto("/");
+  const targets = [
+    page.getByRole("banner").getByRole("link", { name: "Se connecter" }),
+    page.getByRole("group", { name: "Rythme" }).getByRole("button").first(),
+    page.getByRole("button", { name: "J'ai déjà un compte" }),
+    page.getByRole("navigation", { name: "Pied de page" }).getByRole("link").first(),
+    page.getByRole("group", { name: "Langue" }).getByRole("button", { name: "Français" }),
+  ];
+  for (const target of targets) {
+    const box = await target.boundingBox();
+    expect(box, `${target} has no box`).not.toBeNull();
+    expect(box!.height, `${target} is only ${box!.height}px tall`).toBeGreaterThanOrEqual(44);
   }
 });

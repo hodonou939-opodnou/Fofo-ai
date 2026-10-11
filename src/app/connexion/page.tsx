@@ -17,10 +17,10 @@ export default async function SignInPage({ searchParams }: Props) {
       intro="Connecte-toi pour retrouver tes créations."
       footer={
         <>
-          <Link href="/mot-de-passe-oublie" className="text-dust hover:text-ivory">
+          <Link href="/mot-de-passe-oublie" className="inline-flex min-h-11 items-center text-dust hover:text-ivory">
             Mot de passe oublié ?
           </Link>
-          <Link href={withNext("/inscription")} className="text-dust hover:text-ivory">
+          <Link href={withNext("/inscription")} className="inline-flex min-h-11 items-center text-dust hover:text-ivory">
             Pas encore de compte ? <span className="text-gold-light">Créer un compte</span>
           </Link>
         </>

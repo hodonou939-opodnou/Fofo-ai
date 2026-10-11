@@ -17,7 +17,7 @@ export default function Chip({
       aria-pressed={selected}
       onClick={onClick}
       className={[
-        "min-h-10 rounded-full border px-4 text-sm transition",
+        "min-h-11 rounded-full border px-4 text-sm transition",
         selected
           ? "border-gold bg-gold/15 text-gold-light"
           : "border-ember bg-soot-raised text-ivory hover:border-gold/50",

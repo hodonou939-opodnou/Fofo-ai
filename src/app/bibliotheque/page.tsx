@@ -45,7 +45,7 @@ export default async function LibraryPage({
 
   const filterClass = (active: boolean) =>
     [
-      "min-h-10 rounded-full border px-4 py-2 text-sm transition",
+      "inline-flex min-h-11 items-center rounded-full border px-4 text-sm transition",
       active ? "border-gold bg-gold/15 text-gold-light" : "border-ember text-dust hover:border-gold/50 hover:text-ivory",
     ].join(" ");
 

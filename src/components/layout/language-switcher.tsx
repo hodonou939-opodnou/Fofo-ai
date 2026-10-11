@@ -13,7 +13,7 @@ export default function LanguageSwitcher({ activeLocale }: { activeLocale: Local
       <button
         type="button"
         aria-pressed={activeLocale === "fr"}
-        className="rounded-full border border-gold/50 px-3 py-1.5 text-gold-light aria-[pressed=false]:border-ember aria-[pressed=false]:text-dust"
+        className="inline-flex min-h-11 items-center rounded-full border border-gold/50 px-4 text-gold-light aria-[pressed=false]:border-ember aria-[pressed=false]:text-dust"
       >
         Français
       </button>
@@ -21,12 +21,12 @@ export default function LanguageSwitcher({ activeLocale }: { activeLocale: Local
         <button
           type="button"
           aria-pressed={activeLocale === "fon"}
-          className="rounded-full border border-ember px-3 py-1.5 text-dust aria-[pressed=true]:border-gold/50 aria-[pressed=true]:text-gold-light"
+          className="inline-flex min-h-11 items-center rounded-full border border-ember px-4 text-dust aria-[pressed=true]:border-gold/50 aria-[pressed=true]:text-gold-light"
         >
           Fon
         </button>
       ) : (
-        <span className="rounded-full border border-dashed border-ember px-3 py-1.5 text-dust" title="Traduction en cours par un locuteur natif">
+        <span className="inline-flex min-h-11 items-center rounded-full border border-dashed border-ember px-4 text-dust" title="Traduction en cours par un locuteur natif">
           Fon — bientôt disponible
         </span>
       )}
