@@ -101,3 +101,41 @@ describe("Dialog", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
+
+describe("Dialog — keyboard", () => {
+  function renderDialog(onClose = vi.fn()) {
+    render(
+      <>
+        <button>Derrière</button>
+        <Dialog open title="Renommer" onClose={onClose}>
+          <input aria-label="Titre" />
+          <button>Enregistrer</button>
+        </Dialog>
+      </>
+    );
+    return onClose;
+  }
+
+  it("keeps Tab inside the dialog, cycling from the last control back to the first", () => {
+    renderDialog();
+    const save = screen.getByRole("button", { name: "Enregistrer" });
+    save.focus();
+    fireEvent.keyDown(save, { key: "Tab" });
+    expect(screen.getByRole("button", { name: "Fermer" })).toHaveFocus();
+  });
+
+  it("cycles Shift+Tab from the first control to the last", () => {
+    renderDialog();
+    const close = screen.getByRole("button", { name: "Fermer" });
+    close.focus();
+    fireEvent.keyDown(close, { key: "Tab", shiftKey: true });
+    expect(screen.getByRole("button", { name: "Enregistrer" })).toHaveFocus();
+  });
+
+  it("closes on Escape even when focus is outside the panel", () => {
+    const onClose = renderDialog();
+    screen.getByRole("button", { name: "Derrière" }).focus();
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+});
