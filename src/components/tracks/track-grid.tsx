@@ -31,7 +31,10 @@ export default function TrackGrid({
             isPlaying={player.current?.id === t.id && player.isPlaying}
             onPlay={(track) => player.play(track, tracks)}
             onChange={onChange}
-            onRemoved={onRemoved}
+            onRemoved={(id) => {
+              player.forget(id);
+              onRemoved(id);
+            }}
             onRetry={onRetry}
           />
         </li>

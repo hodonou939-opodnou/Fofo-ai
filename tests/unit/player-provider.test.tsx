@@ -4,6 +4,19 @@ import PlayerProvider, { usePlayer } from "@/components/player/player-provider";
 import PlayerBar from "@/components/player/player-bar";
 import type { Track } from "@/lib/tracks/types";
 
+// The provider listens for sign-out to clear the player; capture its listener.
+let authListener: ((event: string) => void) | null = null;
+vi.mock("@/lib/supabase/client", () => ({
+  createBrowserSupabaseClient: () => ({
+    auth: {
+      onAuthStateChange: (cb: (event: string) => void) => {
+        authListener = cb;
+        return { data: { subscription: { unsubscribe: vi.fn() } } };
+      },
+    },
+  }),
+}));
+
 function track(id: string, overrides: Partial<Track> = {}): Track {
   return {
     id,
@@ -37,6 +50,7 @@ function Controls() {
       <button onClick={player.toggle}>toggle</button>
       <button onClick={player.next}>next</button>
       <button onClick={player.previous}>previous</button>
+      <button onClick={() => player.forget("a")}>forget-a</button>
     </div>
   );
 }
@@ -194,5 +208,34 @@ describe("PlayerBar — controls the spec asks for on every screen", () => {
       "/api/share/abc123def456abc123def456/audio?download=1"
     );
     expect(screen.queryByRole("button", { name: "Partager" })).not.toBeInTheDocument();
+  });
+});
+
+describe("PlayerProvider — privacy on shared phones", () => {
+  it("clears the player as soon as the member signs out, wherever that happens", async () => {
+    const { audio } = setup();
+    await click("play-a");
+    await act(async () => {
+      authListener?.("SIGNED_OUT");
+    });
+    expect(screen.getByTestId("current")).toHaveTextContent("none");
+    expect(screen.queryByRole("region", { name: "Lecteur" })).not.toBeInTheDocument();
+    expect(pauseSpy).toHaveBeenCalled();
+    expect(audio.getAttribute("src")).toBeNull();
+  });
+
+  it("forgets a track deleted while it plays", async () => {
+    setup();
+    await click("play-a");
+    await click("forget-a");
+    expect(screen.getByTestId("current")).toHaveTextContent("none");
+    expect(screen.queryByRole("region", { name: "Lecteur" })).not.toBeInTheDocument();
+  });
+
+  it("keeps playing when a different track is deleted", async () => {
+    setup();
+    await click("play-c");
+    await click("forget-a");
+    expect(screen.getByTestId("current")).toHaveTextContent("c");
   });
 });

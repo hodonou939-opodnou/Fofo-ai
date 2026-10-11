@@ -7,6 +7,7 @@ import { STALE_JOB_THRESHOLD_SECONDS } from "@/lib/generation/stale-jobs";
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("@/lib/supabase/client", () => ({
   createBrowserSupabaseClient: () => ({
+    auth: { onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }) },
     from: () => ({ select: () => ({ eq: () => ({ single: vi.fn().mockResolvedValue({ data: null, error: null }) }) }) }),
     rpc: vi.fn(),
   }),

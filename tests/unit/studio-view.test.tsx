@@ -9,6 +9,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn(), refresh: 
 const singleMock = vi.fn();
 vi.mock("@/lib/supabase/client", () => ({
   createBrowserSupabaseClient: () => ({
+    auth: { onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }) },
     from: () => ({ select: () => ({ eq: () => ({ single: singleMock }) }) }),
     rpc: vi.fn().mockResolvedValue({ data: 0, error: null }),
   }),

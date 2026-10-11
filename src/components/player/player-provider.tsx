@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { audioSrc, type Track } from "@/lib/tracks/types";
 
 const PLAYBACK_ERROR = "Impossible de lire ce morceau. Il a peut-être été supprimé — réessaie plus tard.";
@@ -18,6 +19,8 @@ export type Player = {
   next: () => void;
   previous: () => void;
   seek: (seconds: number) => void;
+  /** Drops a track (e.g. just deleted); stops playback if it is the current one. */
+  forget: (trackId: string) => void;
 };
 
 const PlayerContext = createContext<Player | null>(null);
@@ -100,6 +103,44 @@ export default function PlayerProvider({ children }: { children: ReactNode }) {
       .catch(() => setIsPlaying(false));
   }, [current, error, isPlaying, start]);
 
+  // Back to "nothing has played": no bar, no source left to resume.
+  const reset = useCallback(() => {
+    const audio = audioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.removeAttribute("src");
+    }
+    setQueue([]);
+    setIndex(-1);
+    setIsPlaying(false);
+    setError(null);
+    setPosition(0);
+    setDuration(0);
+  }, []);
+
+  const forget = useCallback(
+    (trackId: string) => {
+      if (current?.id === trackId) {
+        reset();
+        return;
+      }
+      const at = queue.findIndex((t) => t.id === trackId);
+      if (at < 0) return;
+      setQueue((q) => q.filter((t) => t.id !== trackId));
+      if (at < index) setIndex((i) => i - 1);
+    },
+    [current, index, queue, reset]
+  );
+
+  // A shared family phone: whoever signs out next must not find the previous
+  // member's track in the bar (sign-out from the menu, another tab, or expiry).
+  useEffect(() => {
+    const { data } = createBrowserSupabaseClient().auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_OUT") reset();
+    });
+    return () => data.subscription.unsubscribe();
+  }, [reset]);
+
   const seek = useCallback((seconds: number) => {
     const audio = audioRef.current;
     if (!audio) return;
@@ -160,8 +201,9 @@ export default function PlayerProvider({ children }: { children: ReactNode }) {
       next,
       previous,
       seek,
+      forget,
     }),
-    [current, isPlaying, error, position, duration, index, queue.length, play, toggle, next, previous, seek]
+    [current, isPlaying, error, position, duration, index, queue.length, play, toggle, next, previous, seek, forget]
   );
 
   return (
