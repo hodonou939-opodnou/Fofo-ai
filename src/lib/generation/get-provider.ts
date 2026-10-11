@@ -1,4 +1,5 @@
 import { MockProvider } from "./mock-provider";
+import { ElevenLabsProvider } from "./elevenlabs-provider";
 import { StableAudioProvider } from "./stable-audio-provider";
 import type { MusicGenerationProvider } from "./provider";
 
@@ -12,7 +13,11 @@ export function getProvider(): MusicGenerationProvider | null {
   if (process.env.GENERATION_PROVIDER === "mock" && process.env.VERCEL_ENV !== "production") {
     return new MockProvider();
   }
-  const apiKey = process.env.STABILITY_API_KEY;
-  if (!apiKey) return null;
-  return new StableAudioProvider(apiKey);
+  // ElevenLabs (the product owner's chosen provider) when configured,
+  // otherwise Stability.
+  const elevenLabsKey = process.env.ELEVENLABS_API_KEY;
+  if (elevenLabsKey) return new ElevenLabsProvider(elevenLabsKey);
+  const stabilityKey = process.env.STABILITY_API_KEY;
+  if (!stabilityKey) return null;
+  return new StableAudioProvider(stabilityKey);
 }

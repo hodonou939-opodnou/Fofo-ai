@@ -43,5 +43,5 @@ Les tests e2e n'envoient aucun e-mail : ils génèrent un lien de récupération
 
 ## Fournisseurs de musique
 
-- **Stability (Stable Audio 2.5)** — branché. 20 crédits (~0,20 $) par morceau ; sans crédits, le studio affiche « momentanément indisponible ».
-- **ElevenLabs Music** — pas encore branché : l'API Musique est réservée aux offres payantes et la clé doit commencer par `sk_` (celle affichée une seule fois à la création, pas l'identifiant de la liste).
+- **ElevenLabs Music** — fournisseur principal, utilisé dès que `ELEVENLABS_API_KEY` est définie. Offre payante obligatoire (l'API Musique refuse les comptes gratuits : HTTP 402). Morceaux instrumentaux garantis (`force_instrumental`), MP3 44,1 kHz / 128 kbps. Testé le 2026-10-11 : un morceau de 30 s généré en ~13 s. La clé commence par `sk_` (affichée une seule fois à la création, pas l'identifiant de la liste).
+- **Stability (Stable Audio 2.5)** — de secours, utilisé seulement si aucune clé ElevenLabs n'est définie. 20 crédits (~0,20 $) par morceau ; sans crédits, le studio affiche « momentanément indisponible ».
