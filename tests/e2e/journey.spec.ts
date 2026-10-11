@@ -32,14 +32,21 @@ test("a visitor creates, plays, shares, renames and deletes a track", async ({ p
   // 3. Play in the persistent player.
   await play.click();
   await expect(page.getByRole("region", { name: "Lecteur" })).toContainText(title);
+  // The full controls are there on every screen size, phones included.
+  const bar = page.getByRole("region", { name: "Lecteur" });
+  await expectTappable(bar.getByRole("slider", { name: "Position dans le morceau" }));
+  await expectTappable(bar.getByRole("link", { name: "Télécharger" }));
+  await expectTappable(bar.getByRole("button", { name: "Partager" }));
+  await expect(bar.getByRole("button", { name: "Morceau suivant" })).toBeVisible();
 
   // 4. Share, and open the link as someone without an account.
   await page.getByRole("button", { name: `Options : ${title}` }).click();
+  const menu = page.getByRole("group", { name: "Actions du morceau" });
   for (const item of ["Partager", "Renommer", "Supprimer"]) {
-    await expectTappable(page.getByRole("button", { name: item, exact: true }));
+    await expectTappable(menu.getByRole("button", { name: item, exact: true }));
   }
-  await expectTappable(page.getByRole("link", { name: "Télécharger" }));
-  await page.getByRole("button", { name: "Partager" }).click();
+  await expectTappable(menu.getByRole("link", { name: "Télécharger" }));
+  await menu.getByRole("button", { name: "Partager" }).click();
   const linkField = page.getByLabel("Lien de partage");
   await expect(linkField).toHaveValue(/\/t\/[0-9a-f]{24}$/);
   const shareUrl = await linkField.inputValue();
@@ -55,14 +62,14 @@ test("a visitor creates, plays, shares, renames and deletes a track", async ({ p
 
   // 5. Rename.
   await page.getByRole("button", { name: `Options : ${title}` }).click();
-  await page.getByRole("button", { name: "Renommer" }).click();
+  await menu.getByRole("button", { name: "Renommer" }).click();
   await page.getByLabel("Titre").fill("Danse de test");
   await page.getByRole("button", { name: "Enregistrer" }).click();
   await expect(grid.getByText("Danse de test")).toBeVisible();
 
   // 6. Delete: the card disappears, the share link dies, the library is empty.
   await page.getByRole("button", { name: "Options : Danse de test" }).click();
-  await page.getByRole("button", { name: "Supprimer", exact: true }).click();
+  await menu.getByRole("button", { name: "Supprimer", exact: true }).click();
   await page.getByRole("button", { name: "Supprimer définitivement" }).click();
   await expect(grid).toHaveCount(0);
   expect((await friendPage.goto(shareUrl))?.status()).toBe(404);

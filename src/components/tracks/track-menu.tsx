@@ -69,7 +69,7 @@ export default function TrackMenu({
         <>
           {/* Phones and small tablets: a bottom sheet above the tab bar, never clipped by the card. */}
           <div aria-hidden className="fixed inset-0 z-40 bg-night/60 md:hidden" onClick={() => setOpen(false)} />
-          <div className="fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-50 rounded-panel border border-ember bg-soot p-2 shadow-lift md:absolute md:inset-x-auto md:right-0 md:bottom-auto md:mt-2 md:w-52 md:p-1.5">
+          <div role="group" aria-label="Actions du morceau" className="fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-50 rounded-panel border border-ember bg-soot p-2 shadow-lift md:absolute md:inset-x-auto md:right-0 md:bottom-auto md:mt-2 md:w-52 md:p-1.5">
           <p className="truncate px-3 pt-1 pb-2 text-sm text-dust md:hidden">{track.title}</p>
           {completed && (
             <button type="button" className={itemClass} onClick={() => openPanel("share")}>

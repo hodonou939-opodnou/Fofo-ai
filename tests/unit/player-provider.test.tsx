@@ -143,3 +143,56 @@ describe("PlayerBar", () => {
     expect(screen.getByRole("button", { name: "Pause" })).toBeInTheDocument();
   });
 });
+
+describe("PlayerBar — controls the spec asks for on every screen", () => {
+  function PlayShared() {
+    const player = usePlayer();
+    const shared = track("s", { src: "/api/share/abc123def456abc123def456/audio", shareToken: "abc123def456abc123def456" });
+    return <button onClick={() => player.play(shared)}>play-shared</button>;
+  }
+
+  it("offers a seek bar and the track's duration", async () => {
+    setup();
+    await click("play-a");
+    expect(screen.getByRole("slider", { name: "Position dans le morceau" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Lecteur" })).toHaveTextContent("0:30");
+  });
+
+  it("downloads the member's own track as an attachment", async () => {
+    setup();
+    await click("play-a");
+    expect(screen.getByRole("link", { name: "Télécharger" })).toHaveAttribute("href", "/api/audio/a?download=1");
+  });
+
+  it("shares the member's own track from the player", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ shareToken: "abc123def456abc123def456", url: "http://x/t/abc123def456abc123def456" }), { status: 200 })
+    );
+    const original = global.fetch;
+    global.fetch = fetchMock as unknown as typeof fetch;
+    try {
+      setup();
+      await click("play-a");
+      await click("Partager");
+      expect(screen.getByRole("dialog", { name: "Partager" })).toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledWith("/api/generations/a/share", expect.objectContaining({ method: "POST" }));
+    } finally {
+      global.fetch = original;
+    }
+  });
+
+  it("downloads a shared track through its share link and offers no owner-only sharing", async () => {
+    render(
+      <PlayerProvider>
+        <PlayShared />
+        <PlayerBar />
+      </PlayerProvider>
+    );
+    await click("play-shared");
+    expect(screen.getByRole("link", { name: "Télécharger" })).toHaveAttribute(
+      "href",
+      "/api/share/abc123def456abc123def456/audio?download=1"
+    );
+    expect(screen.queryByRole("button", { name: "Partager" })).not.toBeInTheDocument();
+  });
+});
