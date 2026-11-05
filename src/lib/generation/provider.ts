@@ -1,6 +1,11 @@
+import type { Composition } from "./composition-plan";
+
 export type GenerationRequest = {
   prompt: string;
   durationSeconds: number;
+  // Rhythm-pinned plan for providers that compose from plans (ElevenLabs);
+  // the others use the prompt.
+  composition?: Composition;
 };
 
 // Why a generation failed, independent of the provider. The route turns each

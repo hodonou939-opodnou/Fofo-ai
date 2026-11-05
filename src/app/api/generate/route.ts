@@ -2,6 +2,7 @@ import { NextResponse, after } from "next/server";
 import { createRouteSupabaseClient } from "@/lib/supabase/route";
 import { getProvider } from "@/lib/generation/get-provider";
 import { buildPrompt } from "@/lib/generation/build-prompt";
+import { buildComposition } from "@/lib/generation/composition-plan";
 import { parseGenerateRequest } from "@/lib/generation/generate-request";
 import { computeIdempotencyKey } from "@/lib/generation/idempotency";
 import { MAX_GENERATIONS_PER_HOUR, RATE_LIMIT_EXCEEDED_CODE } from "@/lib/generation/rate-limit";
@@ -89,11 +90,19 @@ export async function POST(request: Request) {
       mood: input.mood,
       energy: input.energy,
     });
+    const composition = buildComposition({
+      rhythmSlug: input.rhythmSlug,
+      rhythmName: rhythm.name,
+      userIdea: input.prompt,
+      mood: input.mood,
+      energy: input.energy,
+      durationSeconds: input.durationSeconds,
+    });
     after(() =>
       processGenerationJob({
         supabase,
         provider,
-        job: { id: job.job_id, userId: user.id, prompt, durationSeconds: input.durationSeconds },
+        job: { id: job.job_id, userId: user.id, prompt, durationSeconds: input.durationSeconds, composition },
       })
     );
   }

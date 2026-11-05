@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { buildComposition } from "@/lib/generation/composition-plan";
 import { processGenerationJob } from "@/lib/generation/process-job";
 import {
   GENERATION_FAILURE_MESSAGES,
@@ -106,6 +107,23 @@ describe("processGenerationJob", () => {
       }
     }
   );
+
+  it("hands the provider the job's composition plan along with the prompt", async () => {
+    const db = fakeSupabase();
+    const { provider, generate } = fakeProvider(async () => success);
+    const composition = buildComposition({
+      rhythmSlug: "toba",
+      rhythmName: "Toba",
+      userIdea: "un mariage",
+      mood: "Festif",
+      energy: "Modérée",
+      durationSeconds: 30,
+    });
+
+    await processGenerationJob({ supabase: db.supabase, provider, job: { ...job, composition } });
+
+    expect(generate).toHaveBeenCalledWith({ prompt: "final prompt", durationSeconds: 30, composition });
+  });
 
   it("fails the job (still queued) without calling the provider when it cannot be started", async () => {
     const db = fakeSupabase({ rpcErrors: { start_generation_job: { message: "boom" } } });

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ElevenLabsProvider } from "@/lib/generation/elevenlabs-provider";
+import { buildComposition, enforcePlan } from "@/lib/generation/composition-plan";
+import { ElevenLabsProvider, PLAN_TIMEOUT_MS } from "@/lib/generation/elevenlabs-provider";
 import { PROVIDER_ATTEMPT_TIMEOUT_MS } from "@/lib/generation/stable-audio-provider";
 
 const originalFetch = global.fetch;
@@ -8,7 +9,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function mockFetch(implementation: () => Promise<unknown>) {
+function mockFetch(implementation: (...args: unknown[]) => Promise<unknown>) {
   const fetchMock = vi.fn().mockImplementation(implementation);
   global.fetch = fetchMock as unknown as typeof fetch;
   return fetchMock;
@@ -54,7 +55,7 @@ describe("ElevenLabsProvider", () => {
     expect(JSON.parse(init.body)).toEqual({
       prompt: "a calm song",
       music_length_ms: 60_000,
-      model_id: "music_v1",
+      model_id: "music_v2_5",
       force_instrumental: true,
     });
   });
@@ -160,5 +161,135 @@ describe("ElevenLabsProvider", () => {
 
   it("is named so stored jobs record which provider made them", () => {
     expect(new ElevenLabsProvider("k").name).toBe("elevenlabs");
+  });
+});
+
+// With a composition, the free planner endpoint first fits the user's idea into
+// Fofo's skeleton, then the plan (never a prompt) is composed.
+describe("ElevenLabsProvider with a composition plan", () => {
+  const COMPOSE_URL = "https://api.elevenlabs.io/v1/music?output_format=mp3_44100_128";
+  const PLAN_URL = "https://api.elevenlabs.io/v1/music/plan";
+
+  const composition = buildComposition({
+    rhythmSlug: "tchinkounme",
+    rhythmName: "Tchinkounmè",
+    userIdea: "Une fête de village au coucher du soleil",
+    mood: "Festif",
+    energy: "Élevée",
+    durationSeconds: 30,
+  });
+
+  function planResponse(body: unknown) {
+    return { ok: true, status: 200, headers: new Headers({ "content-type": "application/json" }), json: async () => body };
+  }
+
+  // Routes each call by URL: the planner answers `plan`, the composer answers audio.
+  function mockApi(plan: () => Promise<unknown>) {
+    return mockFetch(async (...args: unknown[]) => {
+      const [url] = args as [string];
+      return url === PLAN_URL ? plan() : audioResponse("audio/mpeg", new Uint8Array([0xff, 0xfb]));
+    });
+  }
+
+  async function generateComposed() {
+    return new ElevenLabsProvider("sk_test_key").generate({ prompt: "fallback prompt", durationSeconds: 30, composition });
+  }
+
+  function composedBody(fetchMock: ReturnType<typeof mockFetch>) {
+    const call = fetchMock.mock.calls.find(([url]) => url === COMPOSE_URL);
+    return JSON.parse(call![1].body);
+  }
+
+  it("asks the free planner to fit the user's idea into Fofo's skeleton, then composes the enforced plan with music_v2_5", async () => {
+    const refined = {
+      chunks: composition.skeleton.chunks.map((c) => ({
+        ...c,
+        positive_styles: [...c.positive_styles, "sunset village gathering atmosphere", "warm synth pads"],
+      })),
+    };
+    const fetchMock = mockApi(async () => planResponse(refined));
+
+    const result = await generateComposed();
+    expect(result).toMatchObject({ ok: true, format: "mp3" });
+
+    const [planUrl, planInit] = fetchMock.mock.calls[0];
+    expect(planUrl).toBe(PLAN_URL);
+    expect(planInit.headers["xi-api-key"]).toBe("sk_test_key");
+    expect(JSON.parse(planInit.body)).toEqual({
+      prompt: composition.idea,
+      music_length_ms: 30_000,
+      model_id: "music_v2_5",
+      source_composition_plan: composition.skeleton,
+    });
+
+    expect(fetchMock.mock.calls[1][0]).toBe(COMPOSE_URL);
+    expect(composedBody(fetchMock)).toEqual({
+      composition_plan: enforcePlan(composition.skeleton, refined),
+      model_id: "music_v2_5",
+    });
+    const composed = composedBody(fetchMock).composition_plan.chunks[0].positive_styles;
+    expect(composed).toContain("sunset village gathering atmosphere");
+    expect(composed).not.toContain("warm synth pads");
+  });
+
+  it.each([
+    ["a server error", async () => errorResponse(500, { detail: { message: "boom" } })],
+    ["a rate limit", async () => errorResponse(429, { detail: { status: "rate_limited", message: "slow down" } })],
+    ["a validation error", async () => errorResponse(422, { detail: [{ msg: "bad plan" }] })],
+    ["a body that is not JSON", async () => ({ ok: true, status: 200, headers: new Headers(), json: async () => { throw new SyntaxError("x"); } })],
+    ["a malformed plan", async () => planResponse({ chunks: "nope" })],
+    ["a network error", async () => { throw new TypeError("fetch failed"); }],
+    ["its own timeout", async () => { throw new DOMException("The operation timed out.", "TimeoutError"); }],
+  ])("composes Fofo's skeleton as is when the planner fails with %s", async (_, plan) => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetchMock = mockApi(plan);
+    expect(await generateComposed()).toMatchObject({ ok: true });
+    expect(composedBody(fetchMock)).toEqual({ composition_plan: composition.skeleton, model_id: "music_v2_5" });
+  });
+
+  it("refuses without composing when the planner refuses the user's idea (e.g. a named artist)", async () => {
+    const fetchMock = mockApi(async () =>
+      errorResponse(400, {
+        detail: { status: "bad_prompt", message: "violated our Terms of Service", data: { reason: "copyrighted_material_detected" } },
+      })
+    );
+    const result = await generateComposed();
+    expect(result).toMatchObject({ ok: false, kind: "refused" });
+    if (!result.ok) expect(result.detail).toContain("bad_prompt");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("bounds the planner by its own short timeout and by the attempt's, and the composer by the attempt's", async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, "timeout");
+    const anySpy = vi.spyOn(AbortSignal, "any");
+    const fetchMock = mockApi(async () => planResponse(composition.skeleton));
+
+    await generateComposed();
+
+    const attempt = timeoutSpy.mock.results[timeoutSpy.mock.calls.findIndex(([ms]) => ms === PROVIDER_ATTEMPT_TIMEOUT_MS)].value;
+    const planTimeout = timeoutSpy.mock.results[timeoutSpy.mock.calls.findIndex(([ms]) => ms === PLAN_TIMEOUT_MS)].value;
+    expect(PLAN_TIMEOUT_MS).toBeLessThan(PROVIDER_ATTEMPT_TIMEOUT_MS);
+    expect(anySpy).toHaveBeenCalledWith([attempt, planTimeout]);
+    expect(fetchMock.mock.calls[0][1].signal).toBe(anySpy.mock.results[0].value);
+    expect(fetchMock.mock.calls[1][1].signal).toBe(attempt);
+  });
+
+  it("reports a timeout, not a fallback, when the whole attempt runs out during planning", async () => {
+    // The attempt's own signal has fired: nothing is left to compose with.
+    vi.spyOn(AbortSignal, "timeout").mockImplementation(() => AbortSignal.abort(new DOMException("t", "TimeoutError")));
+    const fetchMock = mockApi(async () => {
+      throw new DOMException("The operation timed out.", "TimeoutError");
+    });
+    expect(await generateComposed()).toMatchObject({ ok: false, kind: "timeout" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("classifies a composer refusal of the plan as refused", async () => {
+    mockFetch(async (...args: unknown[]) =>
+      (args[0] as string) === PLAN_URL
+        ? planResponse(composition.skeleton)
+        : errorResponse(400, { detail: { status: "bad_composition_plan", message: "copyrighted style" } })
+    );
+    expect(await generateComposed()).toMatchObject({ ok: false, kind: "refused" });
   });
 });

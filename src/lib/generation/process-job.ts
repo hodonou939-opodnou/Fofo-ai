@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Composition } from "./composition-plan";
 import { generateWithRetry } from "./generate-with-retry";
 import {
   GENERATION_FAILURE_MESSAGES,
@@ -18,6 +19,7 @@ export type QueuedGenerationJob = {
   userId: string;
   prompt: string; // the composed provider prompt (buildPrompt)
   durationSeconds: number;
+  composition?: Composition; // the rhythm-pinned plan (buildComposition)
 };
 
 // Runs a freshly created job to a terminal state. Never rejects: the job ends
@@ -56,6 +58,7 @@ async function runJob(
   const result = await generateWithRetry(provider, {
     prompt: job.prompt,
     durationSeconds: job.durationSeconds,
+    ...(job.composition ? { composition: job.composition } : {}),
   });
   if (!result.ok) {
     console.error(`[generation ${job.id}] ${provider.name} failed (${result.kind}): ${result.detail}`);

@@ -2,6 +2,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MockProvider } from "@/lib/generation/mock-provider";
 import { buildPrompt } from "@/lib/generation/build-prompt";
+import { buildComposition } from "@/lib/generation/composition-plan";
 import { computeIdempotencyKey } from "@/lib/generation/idempotency";
 import { MAX_GENERATIONS_PER_HOUR } from "@/lib/generation/rate-limit";
 
@@ -185,6 +186,14 @@ describe("POST /api/generate", () => {
           energy: "Élevée",
         }),
         durationSeconds: 15,
+        composition: buildComposition({
+          rhythmSlug: "zinli",
+          rhythmName: "Zinli",
+          userIdea: validBody.prompt,
+          mood: "Festif",
+          energy: "Élevée",
+          durationSeconds: 15,
+        }),
       },
     });
   });
